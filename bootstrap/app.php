@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-    $middleware->trustProxies(at: '*');
+    $middleware->trustProxies(at: '*'); 
 
         // Append custom middleware to the web group
         $middleware->web(append: [
