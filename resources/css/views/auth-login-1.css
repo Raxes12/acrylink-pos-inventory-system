@@ -1,0 +1,161 @@
+@import './auth-shell-1.css';
+
+form[data-login-form] {
+    display: grid;
+    gap: 17px;
+    margin-top: 25px;
+}
+
+.form-group {
+    display: grid;
+    gap: 7px;
+}
+
+.field-label {
+    color: var(--auth-text);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.input-wrap {
+    position: relative;
+    min-height: 50px;
+}
+
+.input-icon {
+    position: absolute;
+    top: 50%;
+    left: 14px;
+    z-index: 2;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--auth-muted);
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition: color .16s ease;
+}
+
+.input-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    min-height: 50px;
+    border: 1px solid var(--auth-border);
+    border-radius: 6px;
+    padding: 0 44px;
+    color: var(--auth-text);
+    background: var(--auth-surface-soft);
+    font: inherit;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+
+input::placeholder {
+    color: #8a96a3;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus {
+    border-color: var(--auth-accent);
+    background: var(--auth-surface);
+    box-shadow: 0 0 0 4px var(--auth-ring);
+}
+
+.input-wrap:focus-within .input-icon {
+    color: var(--auth-accent);
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    z-index: 3;
+    width: 34px;
+    height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 6px;
+    color: var(--auth-muted);
+    background: transparent;
+    cursor: pointer;
+    transform: translateY(-50%);
+    transition: color .16s ease, background .16s ease;
+}
+
+.password-toggle:hover {
+    color: var(--auth-accent);
+    background: #eaf2fa;
+}
+
+.password-toggle svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2;
+}
+
+.password-toggle .eye-off,
+.password-toggle[aria-pressed="true"] .eye {
+    display: none;
+}
+
+.password-toggle[aria-pressed="true"] .eye-off {
+    display: block;
+}
+
+.check-row {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--auth-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.caps-lock-hint {
+    color: var(--auth-warning);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.caps-lock-hint[hidden] { display: none; }
+
+.check-row input {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--auth-accent);
+}
+
+.btn-check {
+    display: none;
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    stroke-width: 2.4;
+}
+
+.btn.is-success .btn-check {
+    display: inline-block;
+}
+
+.btn.is-error {
+    background: var(--auth-danger);
+}
+
+.form-security-note {
+    margin-top: 18px;
+    color: var(--auth-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: center;
+}

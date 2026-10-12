@@ -1,0 +1,154 @@
+.cashier-summary { margin-bottom: 20px; }
+.transactions-page { max-width: 1500px; margin: 0 auto; }
+.transactions-page .page-toolbar { align-items: flex-start; }
+.transaction-metrics { gap: 14px; }
+.transaction-metric { position: relative; min-height: 124px; overflow: hidden; }
+.transaction-metric::before { position: absolute; inset: 0 auto 0 0; width: 4px; background: var(--accent); content: ''; }
+.transaction-metric--sales { background: linear-gradient(135deg,color-mix(in srgb,var(--accent2) 7%,var(--card)),var(--card)); }
+.transaction-metric--sales::before { background: var(--accent2); }
+.transaction-metric--today::before { background: var(--success); }
+.transaction-metric--all::before { background: var(--accent); }
+.transaction-filter { align-items: end; gap: 10px; margin-bottom: 18px; padding: 14px; background: var(--card); box-shadow: 0 3px 14px rgba(13,23,38,.05); }
+.transaction-search { position: relative; flex: 1 1 300px; min-width: 240px; }
+.transaction-search i { position: absolute; top: 50%; left: 13px; color: var(--muted); transform: translateY(-50%); pointer-events: none; }
+.transaction-search input { width: 100%; padding-left: 38px; }
+.transaction-date { display: grid; flex: 0 1 155px; gap: 5px; margin: 0; color: var(--muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.transaction-date input { width: 100%; min-width: 0; }
+.transaction-history-card { overflow: hidden; }
+.transaction-history-card .card-header { background: color-mix(in srgb,var(--soft) 58%,var(--card)); }
+.transaction-history-card table { width: 100%; min-width: 0; table-layout: fixed; border-collapse: collapse; background: var(--card); }
+.transaction-history-card thead { position: sticky; top: 0; z-index: 2; }
+.transaction-history-card th { height: 48px; padding: 9px 8px; border-bottom: 1px solid color-mix(in srgb,var(--accent) 20%,var(--border)); background: color-mix(in srgb,var(--soft) 84%,var(--card)); font-size: 9px; line-height: 1.25; white-space: normal; }
+.transaction-history-card th:nth-child(1) { width: 12%; }
+.transaction-history-card th:nth-child(2) { width: 14%; }
+.transaction-history-card th:nth-child(3) { width: 9%; }
+.transaction-history-card th:nth-child(4) { width: 14%; }
+.transaction-history-card th:nth-child(5) { width: 12%; }
+.transaction-history-card th:nth-child(6) { width: 11%; }
+.transaction-history-card th:nth-child(7) { width: 12%; }
+.transaction-history-card th:nth-child(8) { width: 16%; text-align: center; }
+.transaction-history-card tbody td { height: 92px; padding: 11px 8px; border-bottom: 1px solid var(--border); background: var(--card); vertical-align: middle; overflow-wrap: anywhere; transition: background .16s ease; }
+.transaction-history-card tbody tr:hover td { background: color-mix(in srgb,var(--accent) 3%,var(--card)); }
+.transaction-row--partial-refund td:first-child { box-shadow: inset 3px 0 var(--warning); }
+.transaction-row--refunded td:first-child,.transaction-row--voided td:first-child { box-shadow: inset 3px 0 var(--danger); }
+.receipt-code { display: inline-flex; align-items: center; width: fit-content; padding: 4px 8px; border: 1px solid color-mix(in srgb,var(--accent) 20%,var(--border)); border-radius: 7px; color: var(--accent); background: color-mix(in srgb,var(--accent) 5%,var(--card)); font-family: ui-monospace,SFMono-Regular,Consolas,monospace; font-size: 11px; font-weight: 850; text-decoration: none; }
+.receipt-code:hover { border-color: var(--accent); text-decoration: underline; }
+.transaction-sale-cell { min-width: 0; }
+.transaction-sale-content,.transaction-date-cell { display: grid; gap: 6px; }
+.transaction-date-cell { color: var(--text); font-size: 10px; white-space: normal; }
+.transaction-date-cell small { color: var(--muted); font-size: 10px; }
+.transaction-customer-cell { min-width: 0; }
+.transaction-customer-content { display: block; min-width: 0; }
+.transaction-customer-content > div { display: grid; min-width: 0; gap: 3px; }
+.transaction-customer-content strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.transaction-customer-content span:not(.transaction-avatar) { color: var(--muted); font-size: 10px; }
+.transaction-avatar,.transaction-cashier-avatar { display: grid; flex: 0 0 36px; width: 36px; height: 36px; place-items: center; border-radius: 10px; color: var(--accent); background: color-mix(in srgb,var(--accent) 12%,var(--card)); font-size: 10px; font-weight: 900; }
+.transaction-customer-content > .transaction-avatar { display: none; }
+.transaction-avatar--walkin { color: var(--muted); background: var(--soft); }
+.transaction-payment { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 5px 6px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--soft); font-size: 9px; font-weight: 800; line-height: 1.25; }
+.transaction-payment i { color: var(--accent); }
+.transaction-amounts-cell { min-width: 0; }
+.transaction-amount-line { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-bottom: 4px; white-space: normal; }
+.transaction-amount-line:last-child { margin-bottom: 0; }
+.transaction-amount-line small { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.transaction-net-value { color: var(--accent2); font-size: 11px; white-space: nowrap; }
+.transaction-refund-value,.transaction-balance-open { color: var(--danger); }
+.transaction-zero-value { color: var(--muted); }
+.transaction-credit-cell { min-width: 0; }
+.transaction-credit-cell > span:first-child { display: grid; gap: 3px; margin-bottom: 7px; }
+.transaction-credit-cell small { color: var(--muted); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.transaction-credit-cell strong { font-size: 11px; white-space: nowrap; }
+.transaction-due-hint { display: block; margin: -2px 0 7px; color: var(--muted); font-size: 9px !important; font-weight: 750 !important; text-transform: none !important; white-space: nowrap; }
+.transaction-due-hint.is-overdue { color: var(--danger); }
+.transaction-cashier { display: block; min-width: 0; }
+.transaction-cashier-avatar { flex-basis: 30px; width: 30px; height: 30px; border-radius: 9px; }
+.transaction-cashier > .transaction-cashier-avatar { display: none; }
+.transaction-cashier strong { display: block; font-size: 10px; line-height: 1.45; }
+.transaction-actions { display: grid; min-width: 0; gap: 5px; }
+.transaction-action { display: inline-flex; width: 100%; align-items: center; justify-content: center; gap: 4px; min-height: 30px; padding: 5px 6px; font-size: 9px; line-height: 1.15; white-space: normal; }
+.transaction-action .app-icon { width: 13px; height: 13px; }
+.transaction-action--refund { border-color: color-mix(in srgb,var(--danger) 28%,var(--border)); color: var(--danger); background: color-mix(in srgb,var(--danger) 7%,var(--card)); }
+.transaction-action--refund:hover { color: #fff; background: var(--danger); }
+.transaction-locked-state { display: inline-flex; justify-content: center; padding: 7px; border-radius: 7px; color: var(--muted); background: var(--soft); font-size: 10px; font-weight: 750; white-space: nowrap; }
+.transaction-count { color: var(--muted); font-size: 12px; font-weight: 700; }
+.transaction-pagination { padding: 14px 18px; border-top: 1px solid var(--border); }
+.transaction-pagination nav { margin: 0; }
+
+@media (max-width: 900px) {
+    .transaction-search { flex-basis: 100%; }
+    .transaction-date { flex: 1 1 180px; }
+    .transaction-status-key { display: none; }
+    .transaction-history-card table,.transaction-history-card thead,.transaction-history-card tbody,.transaction-history-card tr,.transaction-history-card td { display: block; width: 100%; }
+    .transaction-history-card table { table-layout: auto; }
+    .transaction-history-card thead { position: static; }
+    .transaction-history-card thead tr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .transaction-history-card tbody { display: grid; gap: 12px; padding: 12px; background: var(--soft); }
+    .transaction-history-card tbody tr { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); overflow: hidden; border: 1px solid var(--border); border-radius: 11px; background: var(--card); }
+    .transaction-history-card tbody td { display: grid; grid-template-columns: 105px minmax(0,1fr); align-items: center; min-height: 52px; height: auto; padding: 9px 11px; border-bottom: 1px solid var(--border); }
+    .transaction-history-card tbody td::before { color: var(--muted); font-size: 9px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; content: attr(data-label); }
+    .transaction-history-card tbody td:first-child { box-shadow: none; }
+    .transaction-history-card tbody td:last-child { grid-column: 1 / -1; border-bottom: 0; }
+    .transaction-actions { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+@media (max-width: 620px) {
+    .transaction-filter > * { width: 100%; }
+    .transaction-search { min-width: 0; }
+    .transaction-date { width: 100%; }
+    .transaction-filter .btn { flex: 1; }
+    .transaction-history-card tbody tr { grid-template-columns: 1fr; }
+    .transaction-history-card tbody td:last-child { grid-column: auto; }
+    .transaction-actions { grid-template-columns: 1fr; }
+}
+
+/* Calm transaction workspace */
+.transactions-page {
+    --transaction-border: color-mix(in srgb,var(--border) 88%,#dbe4ef);
+    --transaction-surface: color-mix(in srgb,var(--card) 97%,var(--soft));
+}
+.transaction-metrics { gap: 12px; }
+.transaction-metric {
+    min-height: 132px;
+    padding: 18px;
+    border: 1px solid var(--transaction-border);
+    border-radius: 12px;
+    background: var(--transaction-surface);
+    box-shadow: 0 4px 14px rgba(15,38,72,.045);
+}
+.transaction-metric::before { display: none; }
+.transaction-metric--sales { border-color: color-mix(in srgb,var(--accent) 24%,var(--transaction-border)); background: color-mix(in srgb,var(--accent) 5%,var(--card)); }
+.transaction-metric .metric-icon { color: var(--accent); background: color-mix(in srgb,var(--accent) 9%,var(--soft)); }
+.transaction-metric--today .metric-icon { color: var(--success); background: color-mix(in srgb,var(--success) 10%,var(--soft)); }
+.transaction-sales-value { color: var(--accent); }
+.transaction-filter {
+    padding: 15px 16px;
+    border: 1px solid var(--transaction-border);
+    border-radius: 12px;
+    background: var(--transaction-surface);
+    box-shadow: 0 4px 14px rgba(15,38,72,.04);
+}
+.transaction-filter-field { display: grid; flex: 0 1 180px; gap: 5px; margin: 0; }
+.transaction-filter-field > span,.transaction-date > span { color: var(--muted); font-size: 9.5px; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.transaction-filter-field select { width: 100%; min-width: 0; }
+.transaction-history-card { border: 1px solid var(--transaction-border); border-radius: 12px; background: var(--transaction-surface); box-shadow: 0 5px 16px rgba(15,38,72,.05); }
+.transaction-history-card .card-header { min-height: 64px; padding-inline: 18px; border-bottom-color: color-mix(in srgb,var(--border) 75%,transparent); background: color-mix(in srgb,var(--soft) 48%,var(--card)); }
+.transaction-history-heading { display: flex; align-items: center; gap: 10px; }
+.transaction-history-heading > div { display: grid; gap: 3px; }
+.transaction-history-heading > div > span:last-child { color: var(--muted); font-size: 10px; }
+.transaction-history-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 9px; color: var(--accent); background: color-mix(in srgb,var(--accent) 9%,var(--soft)); }
+.transaction-history-card th { border-bottom-color: color-mix(in srgb,var(--border) 82%,transparent); background: color-mix(in srgb,var(--soft) 72%,var(--card)); color: color-mix(in srgb,var(--muted) 88%,var(--text)); letter-spacing: .05em; }
+.transaction-history-card tbody td { border-bottom-color: color-mix(in srgb,var(--border) 74%,transparent); background: var(--transaction-surface); }
+.transaction-history-card tbody tr:hover td { background: color-mix(in srgb,var(--accent) 4%,var(--card)); }
+.transaction-row--partial-refund td:first-child,.transaction-row--refunded td:first-child,.transaction-row--voided td:first-child { box-shadow: none; }
+.transaction-net-value { color: var(--text); font-size: 12px; }
+.receipt-code { border-color: color-mix(in srgb,var(--accent) 18%,var(--border)); background: color-mix(in srgb,var(--accent) 4%,var(--card)); }
+.transaction-payment { background: color-mix(in srgb,var(--soft) 72%,var(--card)); }
+.transaction-action { border-radius: 8px; }
+
+@media (max-width: 900px) {
+    .transaction-filter-field { flex: 1 1 180px; }
+    .transaction-history-card tbody { background: color-mix(in srgb,var(--soft) 65%,var(--card)); }
+}
+@media (max-width: 620px) {
+    .transaction-filter-field { width: 100%; }
+    .transaction-history-card .card-header { align-items: flex-start; gap: 8px; }
+}
