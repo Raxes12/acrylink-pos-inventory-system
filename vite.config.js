@@ -83,7 +83,7 @@ export default defineConfig(({ command, mode }) => {
             ],
             }),
         ],
-        (command === 'serve'
+        ...(command === 'serve'
             ? {
                 server: {
                     host: '0.0.0.0',
