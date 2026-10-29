@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
-import laravel from 'laravel-vite-plugin';
+import laravel from 'laravel-vite-plugin'; 
 
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
     const devHost = env.VITE_DEV_HOST || '127.0.0.1';
     const devPort = Number(env.VITE_DEV_PORT || 5173);
@@ -83,23 +83,27 @@ export default defineConfig(({ mode }) => {
             ],
             }),
         ],
-        server: {
-            host: '0.0.0.0',
-            port: devPort,
-            strictPort: true,
-            origin: `http://${devHost}:${devPort}`,
-            hmr: {
-                host: 'localhost',
-                port: devPort,
-            },
-        },
+        ...(command === 'serve'
+            ? {
+                server: {
+                    host: '0.0.0.0',
+                    port: devPort,
+                    strictPort: true,
+                    origin: `http://${devHost}:${devPort}`,
+                    hmr: {
+                        host: 'localhost',
+                        port: devPort,
+                    },
+                },
+            }
+            : {}),
+
+        // Production build settings.
         build: {
-            // Laravel's @vite directive reads public/build/manifest.json.
             manifest: 'manifest.json',
             outDir: 'public/build',
             rollupOptions: {
                 output: {
-                    // Keep descriptive chunk names in production
                     manualChunks: undefined,
                 },
             },
