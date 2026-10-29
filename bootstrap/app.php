@@ -21,7 +21,6 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-<<<<<<< HEAD
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->redirectUsersTo(
             fn (Request $request) => $request->user()?->defaultLandingRoute() ?? route('login')
@@ -36,10 +35,6 @@ return Application::configure(basePath: dirname(__DIR__))
         if ($trustedProxies !== []) {
             $middleware->trustProxies(at: $trustedProxies);
         }
-=======
-    ->withMiddleware(function (Middleware $middleware): void {
-    $middleware->trustProxies(at: '*'); 
->>>>>>> 5cd4097528d4d424a98bf961049395e4752d9c62
 
         // Append custom middleware to the web group
         $middleware->web(append: [
