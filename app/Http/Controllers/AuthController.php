@@ -4,24 +4,29 @@ namespace App\Http\Controllers;
 
 use App\Http\Middleware\ValidateAuthorizedDevice;
 use App\Models\AuditLog;
+use App\Models\AuthorizedDevice;
 use App\Models\MfaChallenge;
 use App\Models\SecurityRule;
 use App\Models\User;
+use App\Models\UserSession;
+use App\Services\IntrusionDetectionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use Illuminate\Support\Carbon;
-use App\Services\IntrusionDetectionService;
 
 class AuthController extends Controller
 {
     private const DEFAULT_MAX_LOGIN_ATTEMPTS = 3;
+
     private const DEFAULT_LOCKOUT_MINUTES = 5;
+
     private const OTP_TTL_MINUTES = 5;
+
     private const MAX_OTP_ATTEMPTS = 5;
 
     public function showLogin()
@@ -31,7 +36,7 @@ class AuthController extends Controller
 
     public function showOtp(Request $request)
     {
-        if (!$this->hasPendingOtp($request)) {
+        if (! $this->hasPendingOtp($request)) {
             return redirect()->route('login');
         }
 
@@ -86,10 +91,10 @@ class AuthController extends Controller
         }
 
         $user = User::where('username', $request->username)
-                    ->where('status', 'active')
-                    ->first();
+            ->where('status', 'active')
+            ->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
+        if (! $user || ! Hash::check($request->password, $user->password)) {
             if ($failedLoginProtectionEnabled) {
                 RateLimiter::hit($throttleKey, $lockoutSeconds);
             } else {
@@ -124,12 +129,13 @@ class AuthController extends Controller
 
         RateLimiter::clear($throttleKey);
 
-        if (!$user->mfa_enabled) {
+        if (! $user->mfa_enabled) {
             $this->completeLogin($request, $user, $request->boolean('remember'), 'Login successful');
-            return redirect()->intended($this->loginDestination($user));
+
+            return $this->redirectAfterLogin($request, $user);
         }
 
-        if (!$this->startOtpChallenge($request, $user, $request->boolean('remember'))) {
+        if (! $this->startOtpChallenge($request, $user, $request->boolean('remember'))) {
             return back()->withErrors([
                 'username' => 'OTP email could not be sent. Please check the mail settings.',
             ])->withInput();
@@ -144,16 +150,16 @@ class AuthController extends Controller
             'otp' => 'required|digits:6',
         ]);
 
-        if (!$this->hasPendingOtp($request)) {
+        if (! $this->hasPendingOtp($request)) {
             return redirect()->route('login')->withErrors(['otp' => 'Your OTP session expired. Please sign in again.']);
         }
 
         $challenge = $this->currentMfaChallenge($request);
-        if (!$challenge) {
+        if (! $challenge) {
             return redirect()->route('login')->withErrors(['otp' => 'Your OTP session expired. Please sign in again.']);
         }
 
-        if (!$this->otpMatches($request->otp, $challenge->otp_hash)) {
+        if (! $this->otpMatches($request->otp, $challenge->otp_hash)) {
             $challenge->increment('attempt_count');
             $challenge->refresh();
 
@@ -167,15 +173,17 @@ class AuthController extends Controller
             }
 
             $remaining = self::MAX_OTP_ATTEMPTS - $challenge->attempt_count;
+
             return back()->withErrors([
                 'otp' => "Invalid OTP code. {$remaining} attempt(s) remaining.",
             ])->withInput();
         }
 
         $user = User::whereKey($challenge->user_id)->where('status', 'active')->first();
-        if (!$user) {
+        if (! $user) {
             $challenge->update(['status' => MfaChallenge::STATUS_FAILED]);
             $request->session()->forget('auth.otp');
+
             return redirect()->route('login')->withErrors(['username' => 'Account is unavailable.']);
         }
 
@@ -188,12 +196,12 @@ class AuthController extends Controller
         $request->session()->forget('auth.otp');
         $this->completeLogin($request, $user, $remember, 'Login successful with OTP');
 
-        return redirect()->intended($this->loginDestination($user));
+        return $this->redirectAfterLogin($request, $user);
     }
 
     public function resendOtp(Request $request)
     {
-        if (!$this->hasPendingOtp($request, false)) {
+        if (! $this->hasPendingOtp($request, false)) {
             return redirect()->route('login')->withErrors(['otp' => 'Please sign in again to request an OTP.']);
         }
 
@@ -202,19 +210,21 @@ class AuthController extends Controller
             ? User::whereKey($challenge->user_id)->where('status', 'active')->first()
             : null;
 
-        if (!$user) {
+        if (! $user) {
             $request->session()->forget('auth.otp');
+
             return redirect()->route('login')->withErrors(['username' => 'Account is unavailable.']);
         }
 
         $throttleKey = 'otp-resend|'.$user->id.'|'.$request->ip();
         if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
             $seconds = RateLimiter::availableIn($throttleKey);
+
             return back()->withErrors(['otp' => "Please wait {$seconds} seconds before requesting another OTP."]);
         }
 
         RateLimiter::hit($throttleKey, 60);
-        if (!$this->startOtpChallenge($request, $user, (bool) $request->session()->get('auth.otp.remember', false))) {
+        if (! $this->startOtpChallenge($request, $user, (bool) $request->session()->get('auth.otp.remember', false))) {
             return back()->withErrors(['otp' => 'OTP email could not be sent. Please check the mail settings.']);
         }
 
@@ -228,7 +238,7 @@ class AuthController extends Controller
             'affected_table' => 'users',
             'affected_record_id' => $user?->id,
         ]);
-        \App\Models\UserSession::where('session_id', $request->session()->getId())
+        UserSession::where('session_id', $request->session()->getId())
             ->where('session_status', 'active')
             ->update([
                 'logout_time' => now(),
@@ -238,6 +248,7 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('login');
     }
 
@@ -271,13 +282,14 @@ class AuthController extends Controller
             'expires_at' => $expiresAt->toIso8601String(),
         ]);
 
-        if (!$this->mailIsConfigured()) {
+        if (! $this->mailIsConfigured()) {
             Log::warning('Login OTP email was not scheduled because mail is not configured.', [
                 'user_id' => $user->id,
                 'username' => $user->username,
             ]);
             $challenge->update(['status' => MfaChallenge::STATUS_FAILED]);
             $request->session()->forget('auth.otp');
+
             return false;
         }
 
@@ -287,7 +299,7 @@ class AuthController extends Controller
         defer(function () use ($challengeId, $userId, $otp) {
             $recipient = User::find($userId);
 
-            if (!$recipient || !$this->deliverOtp($recipient, $otp)) {
+            if (! $recipient || ! $this->deliverOtp($recipient, $otp)) {
                 MfaChallenge::whereKey($challengeId)
                     ->where('status', MfaChallenge::STATUS_PENDING)
                     ->update(['status' => MfaChallenge::STATUS_FAILED]);
@@ -322,7 +334,7 @@ class AuthController extends Controller
         if (
             config('app.device_whitelist_mode', true)
             && $user->isAdmin()
-            && !\App\Models\AuthorizedDevice::where('status', 'authorized')->exists()
+            && ! AuthorizedDevice::where('status', 'authorized')->exists()
         ) {
             return route('security.devices');
         }
@@ -330,9 +342,18 @@ class AuthController extends Controller
         return $user->defaultLandingRoute();
     }
 
+    private function redirectAfterLogin(Request $request, User $user)
+    {
+        // A guest may have been sent to login from a page their role cannot use.
+        // Never let that stale intended URL override the role-safe landing page.
+        $request->session()->forget('url.intended');
+
+        return redirect()->to($this->loginDestination($user));
+    }
+
     private function deliverOtp(User $user, string $otp): bool
     {
-        $message = "Your Acry-Link login OTP is {$otp}. It expires in ".$this->otpTtlMinutes()." minutes.";
+        $message = "Your Acry-Link login OTP is {$otp}. It expires in ".$this->otpTtlMinutes().' minutes.';
 
         try {
             Mail::raw($message, function ($mail) use ($user) {
@@ -343,12 +364,14 @@ class AuthController extends Controller
                 'username' => $user->username,
                 'email' => $user->email,
             ]);
+
             return true;
         } catch (\Throwable $e) {
             Log::warning('Unable to send login OTP email', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -357,7 +380,7 @@ class AuthController extends Controller
     {
         $mailer = config('mail.default');
 
-        if (!$mailer) {
+        if (! $mailer) {
             return false;
         }
 
@@ -400,7 +423,7 @@ class AuthController extends Controller
     {
         $sessionChallenge = $request->session()->get('auth.otp');
 
-        if (!$sessionChallenge || empty($sessionChallenge['challenge_id']) || empty($sessionChallenge['user_id'])) {
+        if (! $sessionChallenge || empty($sessionChallenge['challenge_id']) || empty($sessionChallenge['user_id'])) {
             return null;
         }
 
@@ -409,8 +432,9 @@ class AuthController extends Controller
             ->where('status', MfaChallenge::STATUS_PENDING)
             ->first();
 
-        if (!$challenge) {
+        if (! $challenge) {
             $request->session()->forget('auth.otp');
+
             return null;
         }
 
@@ -420,12 +444,14 @@ class AuthController extends Controller
         if ($requireUnexpired && $challenge->isExpired()) {
             $challenge->update(['status' => MfaChallenge::STATUS_EXPIRED]);
             $request->session()->forget('auth.otp');
+
             return null;
         }
 
-        if ($requireUnexpired && !empty($sessionChallenge['expires_at']) && now()->greaterThanOrEqualTo(Carbon::parse($sessionChallenge['expires_at']))) {
+        if ($requireUnexpired && ! empty($sessionChallenge['expires_at']) && now()->greaterThanOrEqualTo(Carbon::parse($sessionChallenge['expires_at']))) {
             $challenge->update(['status' => MfaChallenge::STATUS_EXPIRED]);
             $request->session()->forget('auth.otp');
+
             return null;
         }
 

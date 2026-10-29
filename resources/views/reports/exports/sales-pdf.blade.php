@@ -38,13 +38,14 @@
         <td><strong>Net Sales</strong>PHP {{ number_format($netSales, 2) }}</td>
     </tr></table>
     <table class="data">
-        <thead><tr><th>Receipt</th><th>Date / Time</th><th>Cashier</th><th>Payment</th><th>Status</th><th class="number">Subtotal</th><th class="number">Discount</th><th class="number">Refunded</th><th class="number">Net Total</th></tr></thead>
+        <thead><tr><th>Receipt</th><th>Date / Time</th><th>Cashier</th><th>Sales Associate</th><th>Payment</th><th>Status</th><th class="number">Subtotal</th><th class="number">Discount</th><th class="number">Refunded</th><th class="number">Net Total</th></tr></thead>
         <tbody>
         @forelse($transactions as $transaction)
             <tr>
                 <td>{{ $transaction->receipt_no }}</td>
                 <td>{{ optional($transaction->date)->format('M d, Y') }} {{ $transaction->time }}</td>
                 <td>{{ $transaction->cashier?->name ?? 'Unknown' }}</td>
+                <td>{{ $transaction->sales_associate ?: '—' }}</td>
                 <td>{{ \App\Models\Transaction::paymentMethodLabel($transaction->payment_method) }}</td>
                 <td>{{ Illuminate\Support\Str::headline($transaction->status) }}</td>
                 <td class="number">{{ number_format($transaction->netSubtotal(), 2) }}</td>
@@ -53,7 +54,7 @@
                 <td class="number">{{ number_format($transaction->netTotal(), 2) }}</td>
             </tr>
         @empty
-            <tr><td colspan="9" class="empty">No sales records match this report period.</td></tr>
+            <tr><td colspan="10" class="empty">No sales records match this report period.</td></tr>
         @endforelse
         </tbody>
     </table>

@@ -247,6 +247,8 @@
 .report-receipt:hover { text-decoration: underline; }
 .report-date { display: grid; gap: 2px; white-space: nowrap; }
 .report-date span { color: var(--muted); font-size: 11px; }
+.report-staff { display: grid; gap: 3px; min-width: 118px; }
+.report-staff small { color: var(--muted); font-size: 10px; }
 .report-discount { color: var(--warning); font-weight: 800; white-space: nowrap; }
 .report-refund { color: var(--danger); font-weight: 800; white-space: nowrap; }
 .report-view { gap: 6px; }

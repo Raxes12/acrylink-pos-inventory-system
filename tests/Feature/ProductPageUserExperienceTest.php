@@ -11,6 +11,7 @@ use App\Http\Middleware\ValidateAuthorizedDevice;
 use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class ProductPageUserExperienceTest extends TestCase
@@ -79,5 +80,22 @@ class ProductPageUserExperienceTest extends TestCase
         $response->assertOk()
             ->assertSee($inactive->variant_code)
             ->assertDontSee($active->variant_code);
+    }
+
+    public function test_product_search_is_case_insensitive_even_with_case_sensitive_database_matching(): void
+    {
+        DB::statement('PRAGMA case_sensitive_like = ON');
+        $variant = ProductVariant::with('product')->firstOrFail();
+        $variant->product->update(['name' => 'Adapter Fitting']);
+
+        foreach (['ada', 'ADA', 'aDaPtEr FiTtInG'] as $search) {
+            $this->get(route('inventory.index', ['search' => $search]))
+                ->assertOk()
+                ->assertSee('Adapter Fitting');
+
+            $this->getJson(route('pos.products', ['search' => $search]))
+                ->assertOk()
+                ->assertJsonFragment(['product_name' => 'Adapter Fitting']);
+        }
     }
 }

@@ -28,6 +28,9 @@
 .customer-create-form { display:flex; min-height:0; flex-direction:column; }
 .customer-modal-header { align-items:flex-start; }
 .customer-modal-header > div { display:grid; gap:3px; }
+.customer-modal-header .contact-modal-heading { display:flex; align-items:center; gap:11px; }
+.contact-modal-heading > span:last-child { display:grid; min-width:0; gap:3px; }
+.contact-modal-avatar { display:grid; width:38px; height:38px; color:var(--accent); border:1px solid color-mix(in srgb,var(--accent) 23%,var(--border)); border-radius:10px; background:color-mix(in srgb,var(--accent) 9%,var(--card)); font-size:10px; font-weight:900; letter-spacing:.03em; place-items:center; flex:0 0 auto; }
 .customer-modal-caption { color:var(--muted); font-size:10px; font-weight:650; }
 .modal-close-btn { display:flex; align-items:center; justify-content:center; width:30px; height:30px; padding:0; border:0; border-radius:7px; background:transparent; color:var(--muted); font-size:22px; line-height:1; cursor:pointer; transition:var(--transition); }
 .modal-close-btn:hover { background:var(--soft); color:var(--text); }
@@ -129,3 +132,22 @@
 @media (max-width: 1100px) { .customer-credit-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media (max-width: 520px) { .customer-credit-metrics { grid-template-columns: 1fr; } .customer-profile-avatar { flex-basis: 48px; width: 48px; height: 48px; border-radius: 13px; } }
 @media (prefers-reduced-motion:reduce) { .customer-modal-backdrop[aria-hidden="false"],.customer-modal-backdrop[aria-hidden="false"] .customer-create-modal { animation:none; } }
+
+/* Customer directory cards mirror the readable transaction history layout on phones. */
+@media (max-width: 720px) {
+    .customer-table-card .table-wrap { overflow: visible; border-bottom: 0; }
+    .customer-table-card table { display: block; min-width: 0; }
+    .customer-table-card thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+    .customer-table-card tbody { display: grid; gap: 10px; padding: 10px; background: color-mix(in srgb, var(--soft) 62%, var(--card)); }
+    .customer-table-card tbody tr { display: grid; grid-template-columns: 1fr; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--card); box-shadow: 0 4px 14px rgba(15,23,42,.05); }
+    .customer-table-card tbody td { display: grid; grid-template-columns: minmax(104px,112px) minmax(0,1fr); align-items: center; gap: 12px; min-height: 60px; padding: 10px 13px; border: 0; border-bottom: 1px solid var(--border); background: transparent !important; text-align: left !important; white-space: normal; }
+    .customer-table-card tbody td::before { content: attr(data-label); color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .06em; line-height: 1.25; text-transform: uppercase; }
+    .customer-table-card tbody td:last-child { border-bottom: 0; }
+    .customer-table-card .customer-directory-identity { min-width: 0; }
+    .customer-table-card .customer-actions { justify-content: flex-start; min-width: 0; }
+    .customer-table-card .customer-actions .btn { min-width: 44px; min-height: 40px; }
+    .customer-table-card tbody tr:has(.empty-state) { display: block; }
+    .customer-table-card .empty-state { display: block; padding: 30px 16px; text-align: center !important; }
+    .customer-table-card .empty-state::before { content: none; }
+}
+@media (max-width: 420px) { .customer-table-card tbody td { grid-template-columns: minmax(88px,96px) minmax(0,1fr); gap: 9px; padding-inline: 10px; } }

@@ -69,7 +69,7 @@
                 $currentStock = (int) ($variant?->inventoryStock?->quantity_on_hand ?? 0);
             @endphp
             <tr>
-                <td>
+                <td data-label="Product / Variant">
                     @if($variant)
                     <a href="{{ route('inventory.show', $variant) }}" class="stock-product-name">{{ $product?->name ?? 'Deleted product' }}</a>
                     @else
@@ -77,14 +77,14 @@
                     @endif
                     <div class="stock-product-sub">{{ $variant?->variant_code ?? 'Deleted variant' }}</div>
                 </td>
-                <td class="stock-muted">{{ $variant?->part_number ?: '-' }}</td>
-                <td>{{ $variant?->brand?->name ?? '-' }}</td>
-                <td class="stock-muted">{{ collect([$variant?->size, $variant?->color])->filter()->join(' / ') ?: '-' }}</td>
-                <td>{{ $variant?->unit?->code ?? '-' }}</td>
-                <td class="text-right stock-onhand">{{ $item->quantity_received }}</td>
-                <td class="text-right">&#8369;{{ number_format((float) $item->unit_cost, 2) }}</td>
-                <td class="text-right fw-800">&#8369;{{ number_format((float) $item->total_cost, 2) }}</td>
-                <td class="text-right stock-muted">{{ $currentStock }}</td>
+                <td data-label="Part no." class="stock-muted">{{ $variant?->part_number ?: '-' }}</td>
+                <td data-label="Brand">{{ $variant?->brand?->name ?? '-' }}</td>
+                <td data-label="Size / Color" class="stock-muted">{{ collect([$variant?->size, $variant?->color])->filter()->join(' / ') ?: '-' }}</td>
+                <td data-label="Unit">{{ $variant?->unit?->code ?? '-' }}</td>
+                <td data-label="Quantity received" class="text-right stock-onhand">{{ $item->quantity_received }}</td>
+                <td data-label="Unit cost" class="text-right">&#8369;{{ number_format((float) $item->unit_cost, 2) }}</td>
+                <td data-label="Total" class="text-right fw-800">&#8369;{{ number_format((float) $item->total_cost, 2) }}</td>
+                <td data-label="Current stock" class="text-right stock-muted">{{ $currentStock }}</td>
             </tr>
             @empty
             <x-empty-state colspan="9" title="No receipt items" message="This stock receipt does not contain any product variants." icon="inbox" />

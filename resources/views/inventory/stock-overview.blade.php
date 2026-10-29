@@ -105,24 +105,24 @@
                 data-critical="{{ $critical }}"
                 data-status="{{ $status }}"
                 data-stock-level="{{ $stockLevel }}">
-                <td>
+                <td data-label="Product">
                     <div class="stock-product-name">{{ $product?->name ?? 'Deleted product' }}</div>
                     <div class="stock-product-sub">{{ $product?->category ?? 'Uncategorized' }}</div>
                 </td>
-                <td>
+                <td data-label="Variant">
                     <div class="stock-code">{{ $variant->variant_code }}</div>
                     <div class="stock-product-sub">
                         {{ collect([$variant->part_number, $variant->size, $variant->color])->filter()->join(' / ') ?: 'No extra details' }}
                     </div>
                 </td>
-                <td class="stock-muted">{{ $variant->brand?->name ?? '-' }}</td>
-                <td class="stock-muted">{{ $variant->supplier?->name ?? 'Not assigned' }}</td>
-                <td>{{ $variant->unit?->code ?? '-' }}</td>
-                <td class="stock-onhand {{ $status !== 'Normal' ? 'stock-onhand--warn' : '' }}">{{ $quantity }}</td>
-                <td class="stock-muted">{{ $minimum }}</td>
-                <td class="stock-muted">{{ $critical }}</td>
-                <td><span class="status {{ $statusClass }}">{{ $status }}</span></td>
-                <td>
+                <td data-label="Brand" class="stock-muted">{{ $variant->brand?->name ?? '-' }}</td>
+                <td data-label="Supplier" class="stock-muted">{{ $variant->supplier?->name ?? 'Not assigned' }}</td>
+                <td data-label="Unit">{{ $variant->unit?->code ?? '-' }}</td>
+                <td data-label="On hand" class="stock-onhand {{ $status !== 'Normal' ? 'stock-onhand--warn' : '' }}">{{ $quantity }}</td>
+                <td data-label="Minimum" class="stock-muted">{{ $minimum }}</td>
+                <td data-label="Critical" class="stock-muted">{{ $critical }}</td>
+                <td data-label="Status"><span class="status {{ $statusClass }}">{{ $status }}</span></td>
+                <td data-label="Actions">
                     <div class="table-actions">
                         @if(auth()->user()->canEdit())
                         <button type="button" class="btn btn-secondary btn-sm stock-adjust-btn" title="Adjust stock for {{ $variantLabel }}" aria-label="Adjust stock for {{ $variantLabel }}"

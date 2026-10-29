@@ -12,7 +12,9 @@ use App\Models\SystemSetting;
 use App\Models\Unit;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class SystemSettingsTest extends TestCase
@@ -65,6 +67,49 @@ class SystemSettingsTest extends TestCase
         $this->put(route('settings.general.update'), ['business_name' => 'Unauthorized'])->assertForbidden();
         $this->get(route('security.index'))->assertForbidden();
         $this->assertSame($settingsCount, SystemSetting::count());
+    }
+
+    public function test_admin_can_upload_and_replace_the_business_logo(): void
+    {
+        Storage::fake('public');
+        $this->actingAs(User::where('role', User::ROLE_ADMIN)->firstOrFail());
+
+        $this->put(route('settings.general.update'), [
+            'business_name' => 'VMC Auto Parts & Accessories',
+            'business_logo' => UploadedFile::fake()->createWithContent(
+                'vmc-brand.png',
+                base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=')
+            ),
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $logoPath = SystemSetting::where('key', 'business.logo_path')->value('value');
+        $this->assertStringStartsWith('business-logos/', $logoPath);
+        Storage::disk('public')->assertExists($logoPath);
+        $this->get(route('settings.index'))->assertOk()->assertSee(Storage::disk('public')->url($logoPath), false);
+
+        $this->put(route('settings.general.update'), [
+            'business_name' => 'VMC Auto Parts & Accessories',
+            'reset_business_logo' => 1,
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        Storage::disk('public')->assertMissing($logoPath);
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'business.logo_path',
+            'value' => 'logo/vmc-logo.ico',
+        ]);
+    }
+
+    public function test_business_logo_rejects_unsupported_files(): void
+    {
+        Storage::fake('public');
+        $this->actingAs(User::where('role', User::ROLE_ADMIN)->firstOrFail());
+
+        $this->put(route('settings.general.update'), [
+            'business_name' => 'VMC Auto Parts & Accessories',
+            'business_logo' => UploadedFile::fake()->create('logo.svg', 10, 'image/svg+xml'),
+        ])->assertSessionHasErrors('business_logo');
+
+        $this->assertDatabaseMissing('system_settings', ['key' => 'business.logo_path']);
     }
 
     public function test_admin_can_manage_unused_units_but_cannot_delete_used_units(): void

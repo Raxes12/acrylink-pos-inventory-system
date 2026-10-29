@@ -14,12 +14,12 @@
 @endphp
 
 <div class="credit-payment-shell">
-    <a href="{{ route('pos.credit-payments.create', $transaction) }}" class="editor-breadcrumb credit-payment-back">
+    <a href="{{ route('accounts-receivable.index', $transaction) }}" class="editor-breadcrumb credit-payment-back">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>
         </svg>
-        Back to Credit Sale
+        Back to Accounts Receivable
     </a>
     <div class="receipt-screen-header">
         <div>
@@ -38,7 +38,7 @@
 
     <article class="credit-payment-ack" id="paymentAcknowledgment" aria-label="Credit payment acknowledgment">
         <header class="ack-header">
-            <img src="{{ asset('logo/Acry-Link_Logo.ico') }}" class="ack-logo" width="58" height="58" alt="{{ $receiptSettings['business.name'] }} logo">
+            <img src="{{ app(\App\Services\SystemSettingsService::class)->businessLogoUrl() }}" class="ack-logo" width="58" height="58" alt="{{ $receiptSettings['business.name'] }} logo">
             <div>
                 <strong>{{ $receiptSettings['business.name'] }}</strong>
                 <span>{{ $receiptSettings['business.address'] }}</span>

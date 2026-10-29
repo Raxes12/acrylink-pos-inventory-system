@@ -2,6 +2,20 @@
 @section('title', 'Suppliers')
 @section('page-label', 'Suppliers')
 
+@php
+$supplierEditData = $suppliers->getCollection()->mapWithKeys(fn ($listedSupplier) => [(string) $listedSupplier->id => [
+    'id' => $listedSupplier->id,
+    'name' => $listedSupplier->name,
+    'contact' => $listedSupplier->contact,
+    'phone' => $listedSupplier->phone,
+    'email' => $listedSupplier->email,
+    'address' => $listedSupplier->address,
+    'status' => $listedSupplier->status,
+    'payment_method' => $listedSupplier->payment_method ?? 'cash',
+    'update_url' => route('suppliers.update', $listedSupplier),
+]]);
+@endphp
+
 @section('content')
 <div class="suppliers-page">
 <x-page-header title="Suppliers" subtitle="Manage vendor contacts, payment preferences, and product coverage.">
@@ -33,7 +47,7 @@
                     <td data-label="Status"><span class="status status-{{ $supplier->status }}">{{ ucfirst($supplier->status) }}</span></td>
                     <td data-label="Actions"><div class="table-actions supplier-actions">
                         <a href="{{ route('suppliers.show', $supplier) }}" class="btn btn-secondary btn-sm" aria-label="View {{ $supplier->name }}" title="View supplier"><i class="bi bi-eye" aria-hidden="true"></i></a>
-                        <a href="{{ route('suppliers.edit', $supplier) }}" class="btn btn-secondary btn-sm" aria-label="Edit {{ $supplier->name }}" title="Edit supplier"><i class="bi bi-pencil" aria-hidden="true"></i></a>
+                        <a href="{{ route('suppliers.edit', $supplier) }}" class="btn btn-secondary btn-sm" aria-label="Edit {{ $supplier->name }}" title="Edit supplier" data-open-supplier-edit data-supplier-id="{{ $supplier->id }}"><i class="bi bi-pencil" aria-hidden="true"></i></a>
                         @if($supplier->products_count > 0)
                         <button type="button" class="btn btn-danger btn-sm" disabled title="Supplier has linked products and cannot be deleted" aria-label="Cannot delete {{ $supplier->name }}"><i class="bi bi-trash3" aria-hidden="true"></i></button>
                         @else
@@ -75,6 +89,14 @@
     <div class="modal supplier-create-modal" role="dialog" aria-modal="true" aria-labelledby="createSupplierTitle" aria-describedby="createSupplierDescription">
         <div class="modal-header supplier-modal-header"><div><span class="modal-title" id="createSupplierTitle">Add Supplier</span><span id="createSupplierDescription">Create a vendor profile for purchasing and inventory records.</span></div><button type="button" class="modal-close-btn" data-close-supplier-create aria-label="Close supplier form">&times;</button></div>
         <form method="POST" action="{{ route('suppliers.store') }}">@csrf<input type="hidden" name="_supplier_create" value="1"><div class="modal-body supplier-modal-body">@include('suppliers._form', ['s' => null])</div><div class="modal-footer supplier-modal-footer"><button type="button" class="btn btn-secondary" data-close-supplier-create>Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-building-add" aria-hidden="true"></i> Create Supplier</button></div></form>
+    </div>
+</div>
+
+<script type="application/json" id="supplierEditData">@json($supplierEditData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)</script>
+<div id="editSupplierModal" class="modal-backdrop supplier-modal-backdrop" style="display:none" role="presentation" aria-hidden="true" data-open-on-error="{{ old('_supplier_edit') === '1' && $errors->any() ? 'true' : 'false' }}" data-error-supplier-id="{{ old('_supplier_edit_id') }}">
+    <div class="modal supplier-create-modal" role="dialog" aria-modal="true" aria-labelledby="editSupplierTitle" aria-describedby="editSupplierDescription">
+        <div class="modal-header supplier-modal-header"><div class="contact-modal-heading"><span class="contact-modal-avatar" data-edit-supplier-avatar aria-hidden="true">S</span><span><span class="modal-title" id="editSupplierTitle">Edit Supplier</span><span id="editSupplierDescription">Update vendor contact and purchasing preferences.</span></span></div><button type="button" class="modal-close-btn" data-close-supplier-edit aria-label="Close supplier edit form">&times;</button></div>
+        <form method="POST" action="" data-supplier-edit-form>@csrf @method('PUT')<input type="hidden" name="_supplier_edit" value="1"><input type="hidden" name="_supplier_edit_id" value="{{ old('_supplier_edit_id') }}"><div class="modal-body supplier-modal-body">@include('suppliers._form', ['s' => null])</div><div class="modal-footer supplier-modal-footer"><button type="button" class="btn btn-secondary" data-close-supplier-edit>Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Save Changes</button></div></form>
     </div>
 </div>
 </div>

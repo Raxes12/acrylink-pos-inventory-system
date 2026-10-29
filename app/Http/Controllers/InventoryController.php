@@ -11,6 +11,7 @@ use App\Models\ProductVariant;
 use App\Models\Supplier;
 use App\Models\Unit;
 use App\Services\InventoryMonitoringService;
+use App\Support\CaseInsensitiveSearch;
 use App\Support\InputLimits;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -122,8 +123,8 @@ class InventoryController extends Controller
             ->where('status', 'active')
             ->when($term !== '', function ($query) use ($term) {
                 $query->where(function ($search) use ($term) {
-                    $search->where('name', 'like', "%{$term}%")
-                        ->orWhereHas('productCategory', fn ($category) => $category->where('name', 'like', "%{$term}%"));
+                    CaseInsensitiveSearch::where($search, 'name', $term)
+                        ->orWhereHas('productCategory', fn ($category) => CaseInsensitiveSearch::where($category, 'name', $term));
                 });
             })
             ->orderBy('name')
@@ -148,10 +149,10 @@ class InventoryController extends Controller
             ->where('status', 'active')
             ->when($term !== '', function ($query) use ($term) {
                 $query->where(function ($search) use ($term) {
-                    $search->where('name', 'like', "%{$term}%")
-                        ->orWhere('contact', 'like', "%{$term}%")
-                        ->orWhere('phone', 'like', "%{$term}%")
-                        ->orWhere('email', 'like', "%{$term}%");
+                    CaseInsensitiveSearch::where($search, 'name', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'contact', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'phone', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'email', $term);
                 });
             })
             ->orderBy('name')
@@ -184,7 +185,7 @@ class InventoryController extends Controller
 
         DB::transaction(function () use ($data, &$variant) {
             $product = $this->productForStore($data);
-            $variant = $this->saveVariant(new ProductVariant(), $product, $data);
+            $variant = $this->saveVariant(new ProductVariant, $product, $data);
             $this->saveInventoryStock($variant, 0, (int) $data['min_stock'], (int) $data['critical_stock']);
 
             app(InventoryMonitoringService::class)->recordMovement(
@@ -364,13 +365,13 @@ class InventoryController extends Controller
     private function applyVariantSearch($query, string $search): void
     {
         $query->where(function ($q) use ($search) {
-            $q->whereHas('product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"))
-                ->orWhere('variant_code', 'like', "%{$search}%")
-                ->orWhere('barcode', 'like', "%{$search}%")
-                ->orWhere('part_number', 'like', "%{$search}%")
-                ->orWhere('size', 'like', "%{$search}%")
-                ->orWhere('color', 'like', "%{$search}%")
-                ->orWhereHas('brand', fn ($brandQuery) => $brandQuery->where('name', 'like', "%{$search}%"));
+            $q->whereHas('product', fn ($productQuery) => CaseInsensitiveSearch::where($productQuery, 'name', $search));
+            CaseInsensitiveSearch::orWhere($q, 'variant_code', $search);
+            CaseInsensitiveSearch::orWhere($q, 'barcode', $search);
+            CaseInsensitiveSearch::orWhere($q, 'part_number', $search);
+            CaseInsensitiveSearch::orWhere($q, 'size', $search);
+            CaseInsensitiveSearch::orWhere($q, 'color', $search);
+            $q->orWhereHas('brand', fn ($brandQuery) => CaseInsensitiveSearch::where($brandQuery, 'name', $search));
         });
     }
 
@@ -493,7 +494,7 @@ class InventoryController extends Controller
 
     private function storeVariantImage(Request $request, ?string $existingPath = null): ?string
     {
-        if (!$request->hasFile('image')) {
+        if (! $request->hasFile('image')) {
             return $existingPath;
         }
 

@@ -24,10 +24,32 @@
 
     <div class="settings-content">
         @if($section === 'general')
-        <form method="POST" action="{{ route('settings.general.update') }}" class="card settings-card">@csrf @method('PUT')
+        <form method="POST" action="{{ route('settings.general.update') }}" class="card settings-card" enctype="multipart/form-data">@csrf @method('PUT')
             <div class="card-header"><div><strong>General Settings</strong><div class="text-muted text-sm">Business identity shared by the application and printed documents.</div></div></div>
             <div class="settings-card-body">
                 <div class="settings-heading"><strong>Client Business Information</strong><span>Used on receipts and exported reports. This does not rename the Acry-Link system.</span></div>
+                <section class="settings-logo-editor" aria-labelledby="business-logo-title">
+                    <div class="settings-logo-preview" data-logo-dropzone tabindex="0" role="button" aria-label="Choose or drop a new business logo">
+                        <img id="businessLogoPreview" src="{{ $businessLogoUrl }}" alt="Current business logo">
+                        <span class="settings-logo-preview-action"><i class="bi bi-camera" aria-hidden="true"></i> Replace</span>
+                    </div>
+                    <div class="settings-logo-content">
+                        <div class="settings-logo-title-row">
+                            <div><strong id="business-logo-title">Business Logo</strong><p>Appears on sales receipts and payment acknowledgments.</p></div>
+                            <span class="settings-logo-state"><i class="bi bi-check-circle-fill" aria-hidden="true"></i>{{ $hasCustomBusinessLogo ? 'Custom logo' : 'Default logo' }}</span>
+                        </div>
+                        <div class="settings-logo-drop-copy"><i class="bi bi-cloud-arrow-up" aria-hidden="true"></i><span><strong>Drop an image here</strong><small>or select one from your device</small></span></div>
+                        <div class="settings-logo-controls">
+                            <label class="settings-logo-upload" for="business_logo"><i class="bi bi-folder2-open" aria-hidden="true"></i><span>{{ $hasCustomBusinessLogo ? 'Choose new logo' : 'Choose logo' }}</span></label>
+                            <input id="business_logo" name="business_logo" type="file" accept="image/png,image/jpeg,image/webp" data-logo-input>
+                            @if($hasCustomBusinessLogo)
+                            <label class="settings-logo-reset"><input type="checkbox" name="reset_business_logo" value="1" data-logo-reset data-default-logo="{{ asset(\App\Services\SystemSettingsService::DEFAULTS['business.logo_path']) }}"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Use default</span></label>
+                            @endif
+                        </div>
+                        <span class="settings-logo-file" data-logo-file aria-live="polite"><i class="bi bi-info-circle" aria-hidden="true"></i> PNG, JPG, or WEBP &middot; Maximum 2 MB</span>
+                        @error('business_logo')<span class="field-error">{{ $message }}</span>@enderror
+                    </div>
+                </section>
                 <div class="settings-form-grid">
                     <div class="form-group settings-wide"><label for="business_name">Business Name</label><input id="business_name" name="business_name" maxlength="120" required autocomplete="organization" value="{{ old('business_name', $settings['business.name']) }}" aria-describedby="business_name_help"><span id="business_name_help" class="form-help">Shown as the business heading on customer-facing documents.</span>@error('business_name')<span class="field-error">{{ $message }}</span>@enderror</div>
                     <div class="form-group settings-wide"><label for="business_address">Address</label><input id="business_address" name="business_address" maxlength="255" autocomplete="street-address" value="{{ old('business_address', $settings['business.address']) }}">@error('business_address')<span class="field-error">{{ $message }}</span>@enderror</div>
@@ -37,7 +59,7 @@
                 <div class="settings-heading"><strong>Regional Settings</strong><span>Current system-wide values are fixed to avoid inconsistent transaction formatting.</span></div>
                 <dl class="settings-readonly"><div><dt>Currency</dt><dd>Philippine Peso (&#8369;)</dd></div><div><dt>Timezone</dt><dd>Asia/Manila</dd></div><div><dt>Date format</dt><dd>MMM DD, YYYY</dd></div></dl>
             </div>
-            <div class="editor-actions"><button class="btn btn-primary" type="submit">Save Changes</button></div>
+            <div class="editor-actions"><span class="settings-save-hint">Changes apply to future and existing receipt views.</span><button class="btn btn-primary" type="submit"><i class="bi bi-check2" aria-hidden="true"></i> Save General Settings</button></div>
         </form>
         @elseif($section === 'inventory')
         <section class="card settings-card">
@@ -80,4 +102,8 @@
 
 @push('styles')
 @vite('resources/css/views/settings-1.css')
+@endpush
+
+@push('scripts')
+@vite('resources/js/views/settings-1.js')
 @endpush

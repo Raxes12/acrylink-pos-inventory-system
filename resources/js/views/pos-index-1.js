@@ -32,6 +32,7 @@ const PAYMENT_HELP = {
     credit_account: 'Select an eligible customer and confirm the credit terms.',
 };
 const fmt = n => '\u20b1' + parseFloat(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const cartKey = variantId => String(variantId);
 const stockOf = variant => Math.max(0, parseInt(variant?.stock, 10) || 0);
 const variantCartQty = variantId => Object.values(cart).reduce((sum, item) => sum + (String(item.variant_id) === String(variantId) ? item.qty : 0), 0);
@@ -350,6 +351,25 @@ function updateItemDiscount(key, value) {
     renderCart();
 }
 
+function updateItemLineTotal(key, value) {
+    const item = cart[key];
+    if (!item) return;
+
+    const lineTotal = Number(value);
+    if (value === '' || !Number.isFinite(lineTotal) || lineTotal < 0) {
+        window.vmcToast?.('Enter a valid line total.', 'warning');
+        renderCart();
+        return;
+    }
+
+    // The entered amount is the amount due for this line after its discount.
+    // Store the matching per-unit sale price so the checkout request and receipt
+    // use the agreed price without changing the product's catalogue price.
+    const discount = Math.max(0, Number(item.discount || 0));
+    item.price = money((lineTotal + discount) / item.qty);
+    renderCart();
+}
+
 function removeItem(key) {
     const item = cart[key];
     delete cart[key];
@@ -445,10 +465,10 @@ function renderCart() {
                     <span>Discount</span>
                     <span class="cart-discount-input"><span aria-hidden="true">₱</span><input type="number" inputmode="decimal" value="${Number(item.discount || 0).toFixed(2)}" min="0" max="${(item.price * item.qty).toFixed(2)}" step="0.01" data-cart-action="discount" data-cart-key="${esc(item.key)}" aria-label="Discount for ${esc(item.name)}"></span>
                 </label>
-                <div class="cart-total-block">
-                    <span>${Number(item.discount || 0) > 0 ? 'After discount' : 'Line total'}</span>
-                    <strong>${fmt(Math.max(0, item.price * item.qty - Number(item.discount || 0)))}</strong>
-                </div>
+                <label class="cart-total-block">
+                    <span class="cart-total-label"><span>${Number(item.discount || 0) > 0 ? 'Line total after discount' : 'Line total'}</span><small>Editable</small></span>
+                    <span class="cart-line-total-input"><span aria-hidden="true">₱</span><input type="number" inputmode="decimal" value="${money(Math.max(0, item.price * item.qty - Number(item.discount || 0))).toFixed(2)}" min="0" max="99999999.99" step="0.01" data-cart-action="line-total" data-cart-key="${esc(item.key)}" aria-label="Line total for ${esc(item.name)}. Editing this updates its sale price." title="Edit the agreed sale amount"></span>
+                </label>
             </div>
         </div>`).join('');
     lastTouchedCartKey = null;
@@ -457,6 +477,7 @@ function renderCart() {
 
 function paymentDetails() {
     return {
+        salesAssociate: document.getElementById('salesAssociate')?.value.trim() || '',
         gcashReference: document.getElementById('gcashReference')?.value.trim() || '',
         cardType: document.getElementById('cardType')?.value || '',
         cardLast4: document.getElementById('cardLast4')?.value.trim() || '',
@@ -605,8 +626,8 @@ function recalculate() {
     if (isCheckingOut) return;
 
     const items = Object.values(cart);
-    const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-    const discount = items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), item.price * item.qty), 0);
+    const subtotal = money(items.reduce((s, i) => s + i.price * i.qty, 0));
+    const discount = money(items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), item.price * item.qty), 0));
     const total = subtotal - discount;
     const payEl = document.getElementById('payment');
     const details = paymentDetails();
@@ -703,6 +724,7 @@ function restorePendingCheckout() {
     selectMethod(snapshot.currentMethod, false);
     const fields = {
         payment: snapshot.payment,
+        salesAssociate: snapshot.details?.salesAssociate,
         gcashReference: snapshot.details?.gcashReference,
         cardType: snapshot.details?.cardType,
         cardLast4: snapshot.details?.cardLast4,
@@ -741,8 +763,8 @@ function submitCheckout() {
 
     const items = Object.values(cart);
     if (!items.length) return;
-    const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
-    const discount = items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), item.price * item.qty), 0);
+    const subtotal = money(items.reduce((s, i) => s + i.price * i.qty, 0));
+    const discount = money(items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), item.price * item.qty), 0));
     const total = subtotal - discount;
     const rawPayment = document.getElementById('payment').value.trim();
     const payment = Number(rawPayment);
@@ -765,6 +787,7 @@ function submitCheckout() {
     document.getElementById('formCheckBank').value = currentMethod === 'check' ? details.checkBank : '';
     document.getElementById('formCheckDate').value = currentMethod === 'check' ? details.checkDate : '';
     document.getElementById('formPayment').value = ['cash', 'credit_account'].includes(currentMethod) ? payment : total;
+    document.getElementById('formSalesAssociate').value = details.salesAssociate;
     document.getElementById('formCustomerId').value = currentMethod === 'credit_account' ? (selectedCustomer?.id || '') : '';
     document.getElementById('formCreditTermDays').value = currentMethod === 'credit_account' ? document.getElementById('creditTermDays').value : '';
     document.getElementById('formInitialPaymentMethod').value = currentMethod === 'credit_account' ? details.initialPaymentMethod : '';
@@ -1376,10 +1399,11 @@ document.getElementById('cartItems')?.addEventListener('click', event => {
     if (control.dataset.cartAction === 'remove') removeItem(key);
 });
 document.getElementById('cartItems')?.addEventListener('change', event => {
-    const input = event.target.closest('[data-cart-action="quantity"], [data-cart-action="discount"]');
+    const input = event.target.closest('[data-cart-action="quantity"], [data-cart-action="discount"], [data-cart-action="line-total"]');
     if (!input) return;
     if (input.dataset.cartAction === 'quantity') updateQty(input.dataset.cartKey, input.value);
     if (input.dataset.cartAction === 'discount') updateItemDiscount(input.dataset.cartKey, input.value);
+    if (input.dataset.cartAction === 'line-total') updateItemLineTotal(input.dataset.cartKey, input.value);
 });
 document.getElementById('customerSearch')?.addEventListener('input', () => {
     if (selectedCustomer) selectedCustomer = null;

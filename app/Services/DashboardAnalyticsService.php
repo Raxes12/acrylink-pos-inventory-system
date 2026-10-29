@@ -146,6 +146,29 @@ class DashboardAnalyticsService
             ->get();
     }
 
+    public function salesAssociatePerformance(CarbonInterface $from, CarbonInterface $to, int $limit = 5): Collection
+    {
+        [$start, $end] = $this->dateBounds($from, $to);
+        $refunds = DB::table('refunds')
+            ->selectRaw('transaction_id, SUM(refund_amount) as refunded_amount')
+            ->groupBy('transaction_id');
+        $netTotal = $this->netTransactionTotalSql();
+
+        return Transaction::query()
+            ->leftJoinSub($refunds, 'refund_totals', fn ($join) => $join->on('refund_totals.transaction_id', '=', 'transactions.id'))
+            ->whereBetween('transactions.date', [$start, $end])
+            ->where('transactions.status', '!=', 'voided')
+            ->whereNotNull('transactions.sales_associate')
+            ->where('transactions.sales_associate', '!=', '')
+            ->groupBy('transactions.sales_associate')
+            ->selectRaw('transactions.sales_associate as sales_associate_name')
+            ->selectRaw('COUNT(transactions.id) as transaction_count')
+            ->selectRaw("SUM({$netTotal}) as revenue")
+            ->orderByDesc('revenue')
+            ->limit($limit)
+            ->get();
+    }
+
     public function inventorySummary(CarbonInterface $monthStart, CarbonInterface $today): array
     {
         $stock = InventoryStock::query()

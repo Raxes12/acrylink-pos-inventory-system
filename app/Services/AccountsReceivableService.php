@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Transaction;
+use App\Support\CaseInsensitiveSearch;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -51,20 +52,20 @@ class AccountsReceivableService
         }
 
         $query->when($filters['search'] ?? null, function (Builder $query, string $value) {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value).'%';
-            $query->where(fn (Builder $nested) => $nested
-                ->where('customers.customer_name', 'like', $like)
-                ->orWhere('customers.customer_code', 'like', $like)
-                ->orWhere('transactions.receipt_no', 'like', $like));
+            $query->where(function (Builder $nested) use ($value) {
+                CaseInsensitiveSearch::where($nested, 'customers.customer_name', $value);
+                CaseInsensitiveSearch::orWhere($nested, 'customers.customer_code', $value);
+                CaseInsensitiveSearch::orWhere($nested, 'transactions.receipt_no', $value);
+            });
         });
 
         $query->when($filters['customer'] ?? null, function (Builder $query, string $value) {
-            $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value).'%';
-            $query->where(fn (Builder $nested) => $nested
-                ->where('customers.customer_name', 'like', $like)
-                ->orWhere('customers.customer_code', 'like', $like));
+            $query->where(function (Builder $nested) use ($value) {
+                CaseInsensitiveSearch::where($nested, 'customers.customer_name', $value);
+                CaseInsensitiveSearch::orWhere($nested, 'customers.customer_code', $value);
+            });
         });
-        $query->when($filters['receipt'] ?? null, fn (Builder $query, string $value) => $query->where('transactions.receipt_no', 'like', '%'.$value.'%'));
+        $query->when($filters['receipt'] ?? null, fn (Builder $query, string $value) => CaseInsensitiveSearch::where($query, 'transactions.receipt_no', $value));
         $query->when($filters['due_from'] ?? null, fn (Builder $query, string $value) => $query->whereDate('credit_sales.due_date', '>=', $value));
         $query->when($filters['due_to'] ?? null, fn (Builder $query, string $value) => $query->whereDate('credit_sales.due_date', '<=', $value));
         $query->when($filters['transaction_from'] ?? null, fn (Builder $query, string $value) => $query->whereDate('transactions.date', '>=', $value));

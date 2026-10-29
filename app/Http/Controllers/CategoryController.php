@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
+use App\Support\CaseInsensitiveSearch;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -35,13 +36,14 @@ class CategoryController extends Controller
             'variants.unit',
             'variants.supplier'
         )
-            ->when($selectedCategory, fn($query) => $query->where('category_id', $selectedCategory->id))
-            ->when($search, fn($query) => $query->where(function ($inner) use ($search) {
-                $inner->where('name', 'like', "%{$search}%")
-                    ->orWhereHas('variants', fn ($variantQuery) => $variantQuery
-                        ->where('variant_code', 'like', "%{$search}%")
-                        ->orWhere('barcode', 'like', "%{$search}%")
-                        ->orWhereHas('brand', fn ($brandQuery) => $brandQuery->where('name', 'like', "%{$search}%")));
+            ->when($selectedCategory, fn ($query) => $query->where('category_id', $selectedCategory->id))
+            ->when($search, fn ($query) => $query->where(function ($inner) use ($search) {
+                CaseInsensitiveSearch::where($inner, 'name', $search);
+                $inner->orWhereHas('variants', function ($variantQuery) use ($search) {
+                    CaseInsensitiveSearch::where($variantQuery, 'variant_code', $search);
+                    CaseInsensitiveSearch::orWhere($variantQuery, 'barcode', $search);
+                    $variantQuery->orWhereHas('brand', fn ($brandQuery) => CaseInsensitiveSearch::where($brandQuery, 'name', $search));
+                });
             }))
             ->orderBy('name')
             ->paginate(15)

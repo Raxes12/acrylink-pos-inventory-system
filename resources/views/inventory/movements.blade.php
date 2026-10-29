@@ -82,8 +82,8 @@
                 ])->filter()->join(' / ');
             @endphp
             <tr>
-                <td class="stock-muted">{{ $movement->created_at?->format('M j, Y h:i A') }}</td>
-                <td>
+                <td data-label="Date" class="stock-muted">{{ $movement->created_at?->format('M j, Y h:i A') }}</td>
+                <td data-label="Product / Variant">
                     @if($variant)
                     <a class="stock-product-name stock-product-link" href="{{ route('inventory.show', $variant) }}">{{ $product?->name ?? 'Deleted product' }}</a>
                     @else
@@ -91,12 +91,12 @@
                     @endif
                     <div class="stock-product-sub">{{ $variant?->variant_code ?? '-' }}{{ $variantDetails ? ' - '.$variantDetails : '' }}</div>
                 </td>
-                <td><span class="movement-type">{{ $typeLabel }}</span></td>
-                <td class="{{ $qtyClass }}">{{ $movement->quantity_change > 0 ? '+' : '' }}{{ $movement->quantity_change }}</td>
-                <td class="stock-muted">{{ $movement->quantity_before }}</td>
-                <td class="stock-onhand">{{ $movement->quantity_after }}</td>
-                <td>{{ $movement->user?->name ?? 'System Administrator' }}</td>
-                <td class="stock-muted movement-remarks">{{ $movement->remarks ?: '-' }}</td>
+                <td data-label="Movement type"><span class="movement-type">{{ $typeLabel }}</span></td>
+                <td data-label="Quantity change" class="{{ $qtyClass }}">{{ $movement->quantity_change > 0 ? '+' : '' }}{{ $movement->quantity_change }}</td>
+                <td data-label="Before" class="stock-muted">{{ $movement->quantity_before }}</td>
+                <td data-label="After" class="stock-onhand">{{ $movement->quantity_after }}</td>
+                <td data-label="User">{{ $movement->user?->name ?? 'System Administrator' }}</td>
+                <td data-label="Remarks" class="stock-muted movement-remarks">{{ $movement->remarks ?: '-' }}</td>
             </tr>
             @empty
             <x-empty-state colspan="8" title="No stock movements found" message="Try clearing the date or movement filters." icon="transactions" />

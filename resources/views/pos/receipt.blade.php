@@ -54,7 +54,7 @@
         @endif
 
         <header class="receipt-header">
-            <img src="{{ asset('logo/vmc-logo.ico') }}" class="receipt-logo" width="64" height="64" alt="{{ $receiptSettings['business.name'] }} logo">
+            <img src="{{ app(\App\Services\SystemSettingsService::class)->businessLogoUrl() }}" class="receipt-logo" width="64" height="64" alt="{{ $receiptSettings['business.name'] }} logo">
             <div class="receipt-company">{{ $receiptSettings['business.name'] }}</div>
             @if($receiptSettings['business.address'])<div>{{ $receiptSettings['business.address'] }}</div>@endif
             @if($receiptSettings['business.email'])<div>{{ $receiptSettings['business.email'] }}</div>@endif
@@ -62,6 +62,7 @@
         </header>
 
         @if($receiptSettings['receipt.show_cashier'])<div class="receipt-served-by">Served by {{ $transaction->cashier?->name ?? 'Cashier' }}</div>@endif
+        @if($transaction->sales_associate)<div class="receipt-served-by">Sales assisted by {{ $transaction->sales_associate }}</div>@endif
 
         <table class="receipt-table">
             <thead class="receipt-column-head">

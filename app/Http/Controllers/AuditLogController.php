@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Support\CaseInsensitiveSearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
@@ -67,28 +68,28 @@ class AuditLogController extends Controller
         $dateTo = $filters['date_to'] ?? null;
 
         return AuditLog::query()
-            ->when($search, fn($q) => $q->where(function ($query) use ($search, $hasContextColumns) {
-                $query->where('username', 'like', "%{$search}%")
-                    ->orWhere('detail', 'like', "%{$search}%")
-                    ->orWhere('action', 'like', "%{$search}%")
-                    ->orWhere('ip_address', 'like', "%{$search}%")
-                    ->orWhere('mac_address', 'like', "%{$search}%")
-                    ->orWhere('user_agent', 'like', "%{$search}%");
+            ->when($search, fn ($q) => $q->where(function ($query) use ($search, $hasContextColumns) {
+                CaseInsensitiveSearch::where($query, 'username', $search);
+                CaseInsensitiveSearch::orWhere($query, 'detail', $search);
+                CaseInsensitiveSearch::orWhere($query, 'action', $search);
+                CaseInsensitiveSearch::orWhere($query, 'ip_address', $search);
+                CaseInsensitiveSearch::orWhere($query, 'mac_address', $search);
+                CaseInsensitiveSearch::orWhere($query, 'user_agent', $search);
 
                 if ($hasContextColumns) {
-                    $query->orWhere('affected_record_id', 'like', "%{$search}%")
-                        ->orWhere('affected_table', 'like', "%{$search}%");
+                    CaseInsensitiveSearch::orWhere($query, 'affected_record_id', $search);
+                    CaseInsensitiveSearch::orWhere($query, 'affected_table', $search);
                 }
             }))
-            ->when($action, fn($q) => $q->where('action', $action))
-            ->when($userId, fn($q) => $q->where('user_id', $userId))
-            ->when($module && $hasContextColumns, fn($q) => $q->where(function ($query) use ($module) {
+            ->when($action, fn ($q) => $q->where('action', $action))
+            ->when($userId, fn ($q) => $q->where('user_id', $userId))
+            ->when($module && $hasContextColumns, fn ($q) => $q->where(function ($query) use ($module) {
                 $query->where('affected_table', $module)
                     ->orWhere('action', $module);
             }))
-            ->when($module && !$hasContextColumns, fn($q) => $q->where('action', $module))
-            ->when($dateFrom, fn($q) => $q->whereDate('timestamp', '>=', $dateFrom))
-            ->when($dateTo, fn($q) => $q->whereDate('timestamp', '<=', $dateTo))
+            ->when($module && ! $hasContextColumns, fn ($q) => $q->where('action', $module))
+            ->when($dateFrom, fn ($q) => $q->whereDate('timestamp', '>=', $dateFrom))
+            ->when($dateTo, fn ($q) => $q->whereDate('timestamp', '<=', $dateTo))
             ->orderByDesc('timestamp')
             ->paginate(50)
             ->withQueryString();

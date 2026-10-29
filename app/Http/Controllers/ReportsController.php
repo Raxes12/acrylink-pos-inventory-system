@@ -10,6 +10,8 @@ use App\Models\SecurityRule;
 use App\Models\Transaction;
 use App\Models\TransactionPayment;
 use App\Services\IntrusionDetectionService;
+use App\Services\SystemSettingsService;
+use App\Support\CaseInsensitiveSearch;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -58,6 +60,11 @@ class ReportsController extends Controller
         // Group by cashier
         $byCashier = $reportTransactions->groupBy(fn ($t) => $t->cashier?->name ?? 'Unknown')
             ->map(fn ($g) => $g->sum(fn (Transaction $transaction) => $transaction->netTotal()))
+            ->sortDesc();
+        $bySalesAssociate = $reportTransactions
+            ->filter(fn (Transaction $transaction) => $transaction->status !== 'voided' && filled($transaction->sales_associate))
+            ->groupBy(fn (Transaction $transaction) => $transaction->sales_associate)
+            ->map(fn ($group) => $group->sum(fn (Transaction $transaction) => $transaction->netTotal()))
             ->sortDesc();
 
         // Top products
@@ -132,7 +139,7 @@ class ReportsController extends Controller
 
         return view('reports.index', compact(
             'transactions', 'totalSales', 'totalRefunds', 'totalDiscount', 'grossRevenue',
-            'avgSale', 'byDate', 'byCashier', 'topProducts', 'range',
+            'avgSale', 'byDate', 'byCashier', 'bySalesAssociate', 'topProducts', 'range',
             'dateFrom', 'dateTo', 'reportLabel', 'exportUrl', 'exportPdfUrl',
             'totalCollections', 'salesPeriodCollections', 'priorCreditCollections', 'totalCreditSales'
         ));
@@ -242,7 +249,7 @@ class ReportsController extends Controller
         return response()->streamDownload(function () use ($transactions, $filters) {
             $handle = fopen('php://output', 'w');
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, [app(\App\Services\SystemSettingsService::class)->get('business.name', 'Acry-Link')]);
+            fputcsv($handle, [app(SystemSettingsService::class)->get('business.name', 'Acry-Link')]);
             fputcsv($handle, ['SALES REPORT']);
             fputcsv($handle, ['REPORT PERIOD', $this->reportLabel($filters)]);
             fputcsv($handle, ['GENERATED', now()->format('F j, Y g:i A')]);
@@ -254,6 +261,7 @@ class ReportsController extends Controller
                 'Date',
                 'Time',
                 'Cashier',
+                'Sales Associate',
                 'Payment Method',
                 'Status',
                 'Original Subtotal',
@@ -269,6 +277,7 @@ class ReportsController extends Controller
                     optional($transaction->date)->format('Y-m-d'),
                     $transaction->time,
                     $this->csvCell($transaction->cashier?->name ?? 'Unknown'),
+                    $this->csvCell($transaction->sales_associate),
                     $this->csvCell(Transaction::paymentMethodLabel($transaction->payment_method)),
                     $this->csvCell($transaction->status),
                     (string) $transaction->subtotal,
@@ -295,7 +304,7 @@ class ReportsController extends Controller
         }
 
         return Pdf::loadView('reports.exports.sales-pdf', [
-            'companyName' => app(\App\Services\SystemSettingsService::class)->get('business.name', 'Acry-Link'),
+            'companyName' => app(SystemSettingsService::class)->get('business.name', 'Acry-Link'),
             'reportLabel' => $this->reportLabel($filters),
             'transactions' => $transactions,
         ])->setPaper('a4', 'landscape')->download(
@@ -317,7 +326,7 @@ class ReportsController extends Controller
         return response()->streamDownload(function () use ($variants, $filters) {
             $handle = fopen('php://output', 'w');
             fwrite($handle, "\xEF\xBB\xBF");
-            fputcsv($handle, [app(\App\Services\SystemSettingsService::class)->get('business.name', 'Acry-Link')]);
+            fputcsv($handle, [app(SystemSettingsService::class)->get('business.name', 'Acry-Link')]);
             fputcsv($handle, ['INVENTORY STOCK REPORT']);
             fputcsv($handle, ['DATE AS OF', now()->format('F j, Y')]);
             fputcsv($handle, ['FILTERS', $this->inventoryFilterLabel($filters)]);
@@ -361,7 +370,7 @@ class ReportsController extends Controller
         }
 
         return Pdf::loadView('reports.exports.inventory-pdf', [
-            'companyName' => app(\App\Services\SystemSettingsService::class)->get('business.name', 'Acry-Link'),
+            'companyName' => app(SystemSettingsService::class)->get('business.name', 'Acry-Link'),
             'filterLabel' => $this->inventoryFilterLabel($filters),
             'variants' => $variants,
         ])->setPaper('a4', 'landscape')->download('inventory-report-'.now()->format('Ymd-His').'.pdf');
@@ -411,14 +420,14 @@ class ReportsController extends Controller
             ->whereHas('product')
             ->when($filters['search'], function ($query, string $search) {
                 $query->where(function ($query) use ($search) {
-                    $query->where('variant_code', 'like', "%{$search}%")
-                        ->orWhere('barcode', 'like', "%{$search}%")
-                        ->orWhere('part_number', 'like', "%{$search}%")
-                        ->orWhere('size', 'like', "%{$search}%")
-                        ->orWhere('color', 'like', "%{$search}%")
-                        ->orWhereHas('product', fn ($productQuery) => $productQuery->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('brand', fn ($brandQuery) => $brandQuery->where('name', 'like', "%{$search}%"))
-                        ->orWhereHas('supplier', fn ($supplierQuery) => $supplierQuery->where('name', 'like', "%{$search}%"));
+                    CaseInsensitiveSearch::where($query, 'variant_code', $search);
+                    CaseInsensitiveSearch::orWhere($query, 'barcode', $search);
+                    CaseInsensitiveSearch::orWhere($query, 'part_number', $search);
+                    CaseInsensitiveSearch::orWhere($query, 'size', $search);
+                    CaseInsensitiveSearch::orWhere($query, 'color', $search);
+                    $query->orWhereHas('product', fn ($productQuery) => CaseInsensitiveSearch::where($productQuery, 'name', $search))
+                        ->orWhereHas('brand', fn ($brandQuery) => CaseInsensitiveSearch::where($brandQuery, 'name', $search))
+                        ->orWhereHas('supplier', fn ($supplierQuery) => CaseInsensitiveSearch::where($supplierQuery, 'name', $search));
                 });
             })
             ->when($filters['category'], function ($query, string $category) {

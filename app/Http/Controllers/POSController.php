@@ -19,6 +19,7 @@ use App\Services\InventoryMonitoringService;
 use App\Services\LayoutMetricsService;
 use App\Services\ReferenceDataService;
 use App\Services\TransactionSettlementService;
+use App\Support\CaseInsensitiveSearch;
 use App\Support\InputLimits;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -118,10 +119,10 @@ class POSController extends Controller
             ->where('status', 'active')
             ->when($creditOnly, fn ($query) => $query->where('credit_enabled', true))
             ->where(function ($query) use ($search) {
-                $query->where('customer_code', 'like', "%{$search}%")
-                    ->orWhere('customer_name', 'like', "%{$search}%")
-                    ->orWhere('phone', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+                CaseInsensitiveSearch::where($query, 'customer_code', $search);
+                CaseInsensitiveSearch::orWhere($query, 'customer_name', $search);
+                CaseInsensitiveSearch::orWhere($query, 'phone', $search);
+                CaseInsensitiveSearch::orWhere($query, 'email', $search);
             })
             ->orderBy('customer_name')
             ->limit(10)
@@ -165,18 +166,22 @@ class POSController extends Controller
             ->when($cashierId, fn ($query) => $query->where('cashier_id', $cashierId))
             ->when($filters['search'] ?? null, function ($query, string $search) {
                 $query->where(function ($query) use ($search) {
-                    $query->where('receipt_no', 'like', "%{$search}%")
+                    CaseInsensitiveSearch::where($query, 'receipt_no', $search);
+                    $query
                         ->orWhereHas('cashier', function ($cashierQuery) use ($search) {
-                            $cashierQuery->where('name', 'like', "%{$search}%")
-                                ->orWhere('username', 'like', "%{$search}%");
+                            CaseInsensitiveSearch::where($cashierQuery, 'name', $search);
+                            CaseInsensitiveSearch::orWhere($cashierQuery, 'username', $search);
+                        })
+                        ->orWhere(function ($salesAssociateQuery) use ($search) {
+                            CaseInsensitiveSearch::where($salesAssociateQuery, 'sales_associate', $search);
                         })
                         ->orWhereHas('paymentMethod', function ($paymentQuery) use ($search) {
-                            $paymentQuery->where('code', 'like', "%{$search}%")
-                                ->orWhere('name', 'like', "%{$search}%");
+                            CaseInsensitiveSearch::where($paymentQuery, 'code', $search);
+                            CaseInsensitiveSearch::orWhere($paymentQuery, 'name', $search);
                         })
                         ->orWhereHas('customer', function ($customerQuery) use ($search) {
-                            $customerQuery->where('customer_code', 'like', "%{$search}%")
-                                ->orWhere('customer_name', 'like', "%{$search}%");
+                            CaseInsensitiveSearch::where($customerQuery, 'customer_code', $search);
+                            CaseInsensitiveSearch::orWhere($customerQuery, 'customer_name', $search);
                         });
                 });
             })
@@ -234,6 +239,7 @@ class POSController extends Controller
             'check_bank' => 'nullable|required_if:payment_method,check|string|max:100',
             'check_date' => 'nullable|required_if:payment_method,check|date',
             'payment' => 'required|numeric|min:0|max:'.InputLimits::DATABASE_MONEY_MAX,
+            'sales_associate' => 'nullable|string|max:120',
             'customer_id' => 'exclude_unless:payment_method,credit_account|required|integer|exists:customers,id',
             'credit_term_days' => 'exclude_unless:payment_method,credit_account|required|integer|min:1|max:65535',
             'initial_payment_method' => 'nullable|in:cash,gcash,check',
@@ -264,6 +270,7 @@ class POSController extends Controller
             $subtotal = 0;
             $discount = 0;
             $lineDiscounts = [];
+            $lineUnitPrices = [];
             $hasLineDiscounts = collect($request->items)->contains(
                 fn (array $item) => array_key_exists('discount', $item)
             );
@@ -301,19 +308,22 @@ class POSController extends Controller
                 }
 
                 $lockedVariants[$variantId] = compact('variant', 'stock');
-                $subtotal += $quantity * (float) $variant->selling_price;
+            }
+
+            foreach ($request->items as $index => $item) {
+                $unitPrice = round((float) $item['unit_price'], 2);
+                $lineSubtotal = round((int) $item['quantity'] * $unitPrice, 2);
+                $subtotal = round($subtotal + $lineSubtotal, 2);
 
                 if ($subtotal > InputLimits::DATABASE_MONEY_MAX) {
                     DB::rollBack();
 
                     return back()->withErrors(['items' => 'The sale total is too large. Reduce the item quantities.'])->withInput();
                 }
-            }
 
-            if ($hasLineDiscounts) {
-                foreach ($request->items as $index => $item) {
-                    $variant = $lockedVariants[(int) $item['variant_id']]['variant'];
-                    $lineSubtotal = round((int) $item['quantity'] * (float) $variant->selling_price, 2);
+                $lineUnitPrices[$index] = $unitPrice;
+
+                if ($hasLineDiscounts) {
                     $lineDiscount = round((float) ($item['discount'] ?? 0), 2);
 
                     if ($lineDiscount > $lineSubtotal) {
@@ -325,6 +335,9 @@ class POSController extends Controller
                     $lineDiscounts[$index] = $lineDiscount;
                     $discount += $lineDiscount;
                 }
+            }
+
+            if ($hasLineDiscounts) {
                 $discount = round($discount, 2);
             } else {
                 // Compatibility for older clients and historical checkout tests.
@@ -437,6 +450,7 @@ class POSController extends Controller
                 'date' => now()->toDateString(),
                 'time' => now()->toTimeString(),
                 'cashier_id' => auth()->id(),
+                'sales_associate' => $request->filled('sales_associate') ? $request->input('sales_associate') : null,
                 'customer_id' => $customer?->id,
                 'subtotal' => $subtotal,
                 'discount' => $discount,
@@ -500,7 +514,7 @@ class POSController extends Controller
                 $stock = $lockedVariants[$variantId]['stock'];
                 $product = $variant->product;
                 $productName = $this->variantLineName($variant);
-                $unitPrice = (float) $variant->selling_price;
+                $unitPrice = $lineUnitPrices[$index];
                 $quantity = (int) $item['quantity'];
                 $lineSubtotal = round($quantity * $unitPrice, 2);
                 $lineDiscount = $hasLineDiscounts ? ($lineDiscounts[$index] ?? 0) : 0;
@@ -553,6 +567,7 @@ class POSController extends Controller
                 'new_values' => [
                     'receipt_no' => $txn->receipt_no,
                     'cashier_id' => $txn->cashier_id,
+                    'sales_associate' => $txn->sales_associate,
                     'subtotal' => $subtotal,
                     'discount' => $discount,
                     'total' => $total,
@@ -1175,13 +1190,16 @@ class POSController extends Controller
 
         foreach ($terms as $term) {
             $query->where(function ($query) use ($term) {
-                $query->where('product_variants.variant_code', 'like', "%{$term}%")
-                    ->orWhere('product_variants.barcode', 'like', "%{$term}%")
-                    ->orWhere('product_variants.part_number', 'like', "%{$term}%")
+                CaseInsensitiveSearch::where($query, 'product_variants.variant_code', $term);
+                CaseInsensitiveSearch::orWhere($query, 'product_variants.barcode', $term);
+                CaseInsensitiveSearch::orWhere($query, 'product_variants.part_number', $term);
+                CaseInsensitiveSearch::orWhere($query, 'product_variants.size', $term);
+                CaseInsensitiveSearch::orWhere($query, 'product_variants.color', $term);
+                $query
                     ->orWhereHas('product', function ($productQuery) use ($term) {
-                        $productQuery->where('name', 'like', "%{$term}%");
+                        CaseInsensitiveSearch::where($productQuery, 'name', $term);
                     })
-                    ->orWhereHas('brand', fn ($brandQuery) => $brandQuery->where('name', 'like', "%{$term}%"));
+                    ->orWhereHas('brand', fn ($brandQuery) => CaseInsensitiveSearch::where($brandQuery, 'name', $term));
             });
         }
     }

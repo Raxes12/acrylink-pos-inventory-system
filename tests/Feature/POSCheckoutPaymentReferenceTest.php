@@ -115,6 +115,48 @@ class POSCheckoutPaymentReferenceTest extends TestCase
             ->assertSee(number_format($lineDiscount, 2));
     }
 
+    public function test_checkout_uses_the_agreed_cart_price_instead_of_the_catalogue_price(): void
+    {
+        $agreedPrice = 2000.00;
+
+        $response = $this->post(route('pos.checkout'), $this->checkoutPayload('cash', null, [
+            'items' => [[
+                'variant_id' => $this->variant->id,
+                'quantity' => 1,
+                'unit_price' => $agreedPrice,
+            ]],
+            'payment' => $agreedPrice,
+        ]));
+
+        $transaction = Transaction::with('items')->latest('id')->firstOrFail();
+
+        $response->assertRedirect(route('pos.receipt', $transaction));
+        $this->assertSame('2000.00', $transaction->subtotal);
+        $this->assertSame('2000.00', $transaction->total);
+        $this->assertSame('2000.00', $transaction->items->first()->unit_price);
+        $this->assertSame('2000.00', $transaction->items->first()->subtotal);
+        $this->assertSame(number_format((float) $this->variant->selling_price, 2, '.', ''), $this->variant->fresh()->selling_price);
+    }
+
+    public function test_checkout_records_the_sales_associate_separately_from_the_cashier(): void
+    {
+        $response = $this->post(route('pos.checkout'), $this->checkoutPayload('cash', null, [
+            'sales_associate' => 'Maria Santos',
+        ]));
+
+        $transaction = Transaction::latest('id')->firstOrFail();
+
+        $response->assertRedirect(route('pos.receipt', $transaction));
+        $this->assertSame('Maria Santos', $transaction->sales_associate);
+        $this->get(route('pos.receipt', $transaction))
+            ->assertOk()
+            ->assertSee('Sales assisted by Maria Santos');
+        $this->get(route('pos.transactions', ['search' => 'maria santos']))
+            ->assertOk()
+            ->assertSee('Sales associate')
+            ->assertSee('Maria Santos');
+    }
+
     public function test_checkout_rejects_a_variant_discount_above_its_line_subtotal(): void
     {
         $unitPrice = (float) $this->variant->selling_price;

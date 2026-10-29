@@ -23,6 +23,7 @@ use Illuminate\Http\Request;
 use Illuminate\Session\ArraySessionHandler;
 use Illuminate\Session\Store;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Tests\TestCase;
@@ -77,7 +78,7 @@ class IDSSecurityRegressionTest extends TestCase
     public function test_session_ledger_only_registers_an_established_application_login(): void
     {
         $request = $this->sessionRequest('cccccccccccccccccccccccccccccccccccccccc');
-        $middleware = new TrackUserSession();
+        $middleware = new TrackUserSession;
 
         $middleware->handle($request, fn () => response('unestablished'));
         $this->assertDatabaseCount('user_sessions', 0);
@@ -127,7 +128,7 @@ class IDSSecurityRegressionTest extends TestCase
         $this->assertSame(2, UserSession::where('user_id', $this->admin->id)->where('session_status', 'active')->count());
 
         Auth::login($this->admin);
-        $firstResponse = (new DetectSessionAnomaly())->handle(
+        $firstResponse = (new DetectSessionAnomaly)->handle(
             $firstRequest,
             fn () => response('allowed')
         );
@@ -140,7 +141,7 @@ class IDSSecurityRegressionTest extends TestCase
         ]);
 
         Auth::login($this->admin);
-        $secondResponse = (new DetectSessionAnomaly())->handle(
+        $secondResponse = (new DetectSessionAnomaly)->handle(
             $this->sessionRequest('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'),
             fn () => response('should not run')
         );
@@ -166,7 +167,7 @@ class IDSSecurityRegressionTest extends TestCase
             'search' => "' OR 1=1 -- ",
         ]);
 
-        $response = (new DetectInputAttack())->handle($request, fn () => response('allowed'));
+        $response = (new DetectInputAttack)->handle($request, fn () => response('allowed'));
 
         $this->assertSame(200, $response->getStatusCode());
         $this->assertSame(0, InputAttackLog::count());
@@ -188,7 +189,7 @@ class IDSSecurityRegressionTest extends TestCase
         $this->assertSame('<script>alert(1)</script>', $request->input('name'));
 
         try {
-            (new DetectInputAttack())->handle($request, fn () => response('should not run'));
+            (new DetectInputAttack)->handle($request, fn () => response('should not run'));
             $this->fail('The XSS request was not blocked.');
         } catch (HttpExceptionInterface $exception) {
             $this->assertSame(400, $exception->getStatusCode());
@@ -208,7 +209,7 @@ class IDSSecurityRegressionTest extends TestCase
         ]);
         RateLimiter::clear('ids-ip-rate|10.0.0.10');
 
-        $middleware = new DetectRequestRateAnomaly();
+        $middleware = new DetectRequestRateAnomaly;
         $firstRequest = $this->request('GET', '/login', '10.0.0.10');
         $this->assertSame('10.0.0.10', $firstRequest->ip());
         $middleware->handle($firstRequest, fn () => response('first'));
@@ -284,7 +285,6 @@ class IDSSecurityRegressionTest extends TestCase
     public function test_alert_email_reports_failure_when_mail_is_not_configured(): void
     {
         config([
-            'services.security_alert_email' => 'security@example.test',
             'mail.default' => 'smtp',
             'mail.mailers.smtp.host' => null,
             'mail.mailers.smtp.username' => null,
@@ -315,6 +315,72 @@ class IDSSecurityRegressionTest extends TestCase
         $this->assertDatabaseHas('notification_logs', [
             'intrusion_alert_id' => $alert->intrusion_alert_id,
             'send_status' => 'failed',
+        ]);
+    }
+
+    public function test_security_alerts_are_sent_to_every_active_admin_email(): void
+    {
+        Mail::fake();
+        config(['services.security_alert_email' => 'ignored@example.test']);
+
+        $secondAdmin = User::create([
+            'username' => 'second_admin',
+            'name' => 'Second Administrator',
+            'email' => 'second-admin@example.test',
+            'password' => $this->admin->password,
+            'role' => User::ROLE_ADMIN,
+            'role_id' => $this->admin->role_id,
+            'status' => 'active',
+            'mfa_enabled' => false,
+        ]);
+        User::create([
+            'username' => 'inactive_admin',
+            'name' => 'Inactive Administrator',
+            'email' => 'inactive-admin@example.test',
+            'password' => $this->admin->password,
+            'role' => User::ROLE_ADMIN,
+            'role_id' => $this->admin->role_id,
+            'status' => 'inactive',
+            'mfa_enabled' => false,
+        ]);
+
+        $event = IntrusionEvent::create([
+            'user_id' => $this->admin->id,
+            'event_type' => 'abnormal_activity',
+            'source_module' => 'system',
+            'severity' => 'high',
+            'description' => 'Multiple-admin recipient test.',
+            'ip_address' => '127.0.0.1',
+            'event_status' => 'open',
+            'detected_at' => now(),
+        ]);
+        $alert = IntrusionAlert::create([
+            'intrusion_event_id' => $event->id,
+            'alert_title' => 'MULTIPLE ADMIN RECIPIENT TEST',
+            'alert_message' => 'Each active administrator should receive this alert.',
+            'severity' => 'high',
+            'alert_channel' => 'both',
+            'alert_status' => 'new',
+        ]);
+
+        $this->assertTrue(app(IntrusionDetectionService::class)->sendAlertEmails($alert));
+        $this->assertDatabaseHas('notification_logs', [
+            'intrusion_alert_id' => $alert->intrusion_alert_id,
+            'recipient_email' => $this->admin->email,
+            'send_status' => 'sent',
+        ]);
+        $this->assertDatabaseHas('notification_logs', [
+            'intrusion_alert_id' => $alert->intrusion_alert_id,
+            'recipient_email' => $secondAdmin->email,
+            'send_status' => 'sent',
+        ]);
+        $this->assertDatabaseMissing('notification_logs', [
+            'intrusion_alert_id' => $alert->intrusion_alert_id,
+            'recipient_email' => 'inactive-admin@example.test',
+        ]);
+        $this->assertDatabaseMissing('notification_logs', [
+            'intrusion_alert_id' => $alert->intrusion_alert_id,
+            'recipient_email' => 'ignored@example.test',
         ]);
     }
 
@@ -365,7 +431,7 @@ class IDSSecurityRegressionTest extends TestCase
         Auth::login($cashier);
 
         try {
-            (new ValidateAuthorizedDevice())->handle($request, fn () => response('should not run'));
+            (new ValidateAuthorizedDevice)->handle($request, fn () => response('should not run'));
             $this->fail('A user who is not assigned to the device was not rejected.');
         } catch (HttpExceptionInterface $exception) {
             $this->assertSame(403, $exception->getStatusCode());
@@ -417,7 +483,7 @@ class IDSSecurityRegressionTest extends TestCase
         Auth::login($cashier);
 
         try {
-            (new ValidateAuthorizedDevice())->handle($request, fn () => response('should not run'));
+            (new ValidateAuthorizedDevice)->handle($request, fn () => response('should not run'));
             $this->fail('An unassigned duplicate device record overrode the explicit user assignment.');
         } catch (HttpExceptionInterface $exception) {
             $this->assertSame(403, $exception->getStatusCode());
@@ -439,7 +505,7 @@ class IDSSecurityRegressionTest extends TestCase
             'status' => 'blocked',
         ]);
 
-        $response = (new DenyBlockedDevice())->handle(
+        $response = (new DenyBlockedDevice)->handle(
             $this->request('POST', '/logout', '10.20.30.41'),
             fn () => response('logout allowed')
         );

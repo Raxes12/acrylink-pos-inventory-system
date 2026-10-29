@@ -143,6 +143,19 @@ class FinancialReportingTest extends TestCase
             ->assertOk()->assertSee('RPT-AR-31-60')->assertDontSee('RPT-AR-1-30');
     }
 
+    public function test_sales_report_groups_net_sales_by_sales_associate(): void
+    {
+        $transaction = $this->transaction('RPT-ASSOCIATE', 1250, today());
+        $transaction->update(['sales_associate' => 'Maria Santos']);
+
+        $this->get(route('reports.index', ['range' => 'today']))
+            ->assertOk()
+            ->assertViewHas('bySalesAssociate', fn ($associates) => (float) $associates->get('Maria Santos') === 1250.0)
+            ->assertSee('Sales by Associate')
+            ->assertSee('Maria Santos')
+            ->assertSee('Associate: Maria Santos');
+    }
+
     public function test_receivables_report_filters_customer_collections_by_payment_period(): void
     {
         $current = $this->creditTransaction('RPT-COLLECTION-CURRENT', 200, today(), today()->addDays(30), 'Current Collection');

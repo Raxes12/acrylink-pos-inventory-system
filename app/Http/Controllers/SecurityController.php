@@ -2,16 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\AuthorizedDevice;
 use App\Models\BlockedEntity;
 use App\Models\IntrusionAlert;
 use App\Models\IntrusionEvent;
 use App\Models\SecurityRule;
 use App\Models\User;
-use App\Models\AuditLog;
-use App\Services\DeviceIdentityService;
 use App\Services\BlockedEntityService;
+use App\Services\DeviceIdentityService;
 use App\Services\IntrusionDetectionService;
+use App\Support\CaseInsensitiveSearch;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Schema;
@@ -44,12 +45,13 @@ class SecurityController extends Controller
         $devices = AuthorizedDevice::with('assignedUser')
             ->when($filters['search'] ?? null, function ($query, string $search) {
                 $query->where(function ($query) use ($search) {
-                    $query->where('device_name', 'like', "%{$search}%")
-                        ->orWhere('ip_address', 'like', "%{$search}%")
-                        ->orWhere('mac_address', 'like', "%{$search}%")
+                    CaseInsensitiveSearch::where($query, 'device_name', $search);
+                    CaseInsensitiveSearch::orWhere($query, 'ip_address', $search);
+                    CaseInsensitiveSearch::orWhere($query, 'mac_address', $search);
+                    $query
                         ->orWhereHas('assignedUser', function ($user) use ($search) {
-                            $user->where('name', 'like', "%{$search}%")
-                                ->orWhere('username', 'like', "%{$search}%");
+                            CaseInsensitiveSearch::where($user, 'name', $search);
+                            CaseInsensitiveSearch::orWhere($user, 'username', $search);
                         });
                 });
             })
@@ -93,6 +95,7 @@ class SecurityController extends Controller
 
         $data['mac_address'] = app(DeviceIdentityService::class)->normalizeMac($data['mac_address'] ?? null);
         AuthorizedDevice::create($data);
+
         return back()->with('success', 'Authorized device saved.');
     }
 
@@ -143,7 +146,7 @@ class SecurityController extends Controller
             'status' => ['nullable', 'in:active,expired,removed'],
         ]);
 
-        if (!Schema::hasTable('blocked_entities')) {
+        if (! Schema::hasTable('blocked_entities')) {
             return view('security.blocked-entities', [
                 'blockedEntities' => new LengthAwarePaginator([], 0, 20),
                 'blocklistUnavailable' => true,
@@ -163,11 +166,12 @@ class SecurityController extends Controller
             'blockedEntities' => BlockedEntity::with('blocker')
                 ->when($filters['search'] ?? null, function ($query, string $search) {
                     $query->where(function ($query) use ($search) {
-                        $query->where('entity_value', 'like', "%{$search}%")
-                            ->orWhere('reason', 'like', "%{$search}%")
-                            ->orWhereHas('blocker', fn ($user) => $user
-                                ->where('username', 'like', "%{$search}%")
-                                ->orWhere('name', 'like', "%{$search}%"));
+                        CaseInsensitiveSearch::where($query, 'entity_value', $search);
+                        CaseInsensitiveSearch::orWhere($query, 'reason', $search);
+                        $query->orWhereHas('blocker', function ($user) use ($search) {
+                            CaseInsensitiveSearch::where($user, 'username', $search);
+                            CaseInsensitiveSearch::orWhere($user, 'name', $search);
+                        });
                     });
                 })
                 ->when($filters['type'] ?? null, fn ($query, string $type) => $query->where('entity_type', $type))
@@ -222,13 +226,13 @@ class SecurityController extends Controller
             'latestAlert.resolvedBy',
         ])->when($filters['search'] ?? null, function ($query, string $search) {
             $query->where(function ($query) use ($search) {
-                $query->where('event_type', 'like', "%{$search}%")
-                    ->orWhere('source_module', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('ip_address', 'like', "%{$search}%")
-                    ->orWhere('mac_address', 'like', "%{$search}%")
-                    ->orWhereHas('user', fn ($user) => $user->where('username', 'like', "%{$search}%"))
-                    ->orWhereHas('alerts', fn ($alert) => $alert->where('alert_title', 'like', "%{$search}%"));
+                CaseInsensitiveSearch::where($query, 'event_type', $search);
+                CaseInsensitiveSearch::orWhere($query, 'source_module', $search);
+                CaseInsensitiveSearch::orWhere($query, 'description', $search);
+                CaseInsensitiveSearch::orWhere($query, 'ip_address', $search);
+                CaseInsensitiveSearch::orWhere($query, 'mac_address', $search);
+                $query->orWhereHas('user', fn ($user) => CaseInsensitiveSearch::where($user, 'username', $search))
+                    ->orWhereHas('alerts', fn ($alert) => CaseInsensitiveSearch::where($alert, 'alert_title', $search));
             });
         })->when($filters['severity'] ?? null, function ($query, string $severity) {
             $query->where(function ($query) use ($severity) {
@@ -374,7 +378,7 @@ class SecurityController extends Controller
 
     public function resendAlertEmail(IntrusionAlert $alert, IntrusionDetectionService $intrusionDetection)
     {
-        if (!in_array($alert->alert_channel, ['email', 'both'], true)) {
+        if (! in_array($alert->alert_channel, ['email', 'both'], true)) {
             return back()->withErrors(['email' => 'This anomaly alert is configured for dashboard display only.']);
         }
 
@@ -382,7 +386,7 @@ class SecurityController extends Controller
 
         AuditLog::record('SECURITY', "Resent intrusion alert email for #{$alert->intrusion_alert_id}: {$alert->alert_title}");
 
-        if (!$sent) {
+        if (! $sent) {
             return back()->withErrors([
                 'email' => 'The alert email could not be sent. Check the recipient and mail settings, then review the notification log.',
             ]);
@@ -413,8 +417,12 @@ class SecurityController extends Controller
         ]);
 
         $data['is_active'] = $request->boolean('is_active');
-        if (!$rule->usesThreshold()) $data['threshold_value'] = null;
-        if (!$rule->usesWindow()) $data['time_window_minutes'] = null;
+        if (! $rule->usesThreshold()) {
+            $data['threshold_value'] = null;
+        }
+        if (! $rule->usesWindow()) {
+            $data['time_window_minutes'] = null;
+        }
         $rule->update($data);
 
         AuditLog::record('SECURITY', "Updated security rule: {$rule->rule_name}", null, [
@@ -449,7 +457,7 @@ class SecurityController extends Controller
 
     public function blockEventDevice(Request $request, IntrusionEvent $event)
     {
-        if (!$event->ip_address && !$event->mac_address) {
+        if (! $event->ip_address && ! $event->mac_address) {
             return back()->withErrors(['device' => 'This alert has no IP or MAC address to block.']);
         }
 
@@ -519,5 +527,4 @@ class SecurityController extends Controller
             'ip_address.ip' => 'Enter a valid IPv4 or IPv6 address.',
         ];
     }
-
 }

@@ -75,6 +75,7 @@
                     @error('notes')<span class="field-error">{{ $message }}</span>@enderror
                 </div>
                 @error('transaction')<div class="checkout-feedback is-error">{{ $message }}</div>@enderror
+                <label class="credit-payment-confirm"><input type="checkbox" id="creditPaymentConfirm" required><span>I confirm the amount and payment details are correct.</span></label>
                 <button type="submit" class="btn btn-success w-full credit-payment-submit"><i class="bi bi-check-circle" aria-hidden="true"></i> Record Payment</button>
             </form>
         </section>

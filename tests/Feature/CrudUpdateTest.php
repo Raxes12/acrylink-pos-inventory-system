@@ -3,11 +3,11 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\ValidateAuthorizedDevice;
-use App\Models\AuthorizedDevice;
 use App\Models\AuditLog;
+use App\Models\AuthorizedDevice;
+use App\Models\IntrusionEvent;
 use App\Models\InventoryMovement;
 use App\Models\InventoryStock;
-use App\Models\IntrusionEvent;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
@@ -16,9 +16,10 @@ use App\Models\StockReceipt;
 use App\Models\Supplier;
 use App\Models\User;
 use App\Services\IntrusionDetectionService;
+use App\Services\SystemSettingsService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -604,7 +605,7 @@ class CrudUpdateTest extends TestCase
         $csvResponse = $this->get(route('reports.export', ['range' => 'today']))->assertOk();
         $csv = $csvResponse->streamedContent();
 
-        $this->assertStringContainsString(app(\App\Services\SystemSettingsService::class)->get('business.name'), $csv);
+        $this->assertStringContainsString(app(SystemSettingsService::class)->get('business.name'), $csv);
         $this->assertStringContainsString('SALES REPORT', $csv);
         $this->assertStringContainsString('"REPORT PERIOD","'.today()->format('F j, Y').'"', $csv);
 
@@ -632,7 +633,7 @@ class CrudUpdateTest extends TestCase
         $csvResponse = $this->get(route('reports.inventory.export', $parameters))->assertOk();
         $csv = $csvResponse->streamedContent();
 
-        $this->assertStringContainsString(app(\App\Services\SystemSettingsService::class)->get('business.name'), $csv);
+        $this->assertStringContainsString(app(SystemSettingsService::class)->get('business.name'), $csv);
         $this->assertStringContainsString('INVENTORY STOCK REPORT', $csv);
         $this->assertStringContainsString($variant->variant_code, $csv);
         $this->assertStringContainsString($variant->product->name, $csv);
@@ -683,8 +684,6 @@ class CrudUpdateTest extends TestCase
     public function test_intrusion_events_create_actionable_dashboard_and_email_alerts(): void
     {
         Mail::fake();
-        config(['services.security_alert_email' => 'security@example.test']);
-
         $request = Request::create('/security-test', 'POST');
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
         $request->headers->set('User-Agent', 'Acry-Link IDS Test');
@@ -727,7 +726,7 @@ class CrudUpdateTest extends TestCase
         ]);
 
         $this->assertDatabaseHas('notification_logs', [
-            'recipient_email' => 'security@example.test',
+            'recipient_email' => auth()->user()->email,
             'notification_type' => 'intrusion_alert',
             'send_status' => 'sent',
         ]);

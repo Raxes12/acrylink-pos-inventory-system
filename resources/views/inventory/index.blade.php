@@ -79,7 +79,7 @@
                     data-stock="{{ $quantity }}"
                     data-supplier="{{ $variant->supplier?->name ?? '' }}"
                     data-status="{{ $variant->status }}">
-                    <td class="product-cell product-cell--{{ $variant->status }}">
+                    <td data-label="Product / Variant" class="product-cell product-cell--{{ $variant->status }}">
                         @if($variant->image_path)
                         <img
                             src="{{ asset('storage/'.$variant->image_path) }}"
@@ -105,11 +105,11 @@
                             </div>
                         </div>
                     </td>
-                    <td>
+                    <td data-label="Part / Brand">
                         <strong class="product-part-number">{{ $variant->part_number ?: 'No part number' }}</strong>
                         <span class="product-secondary">{{ $variant->brand?->name ?? 'No brand' }}</span>
                     </td>
-                    <td>
+                    <td data-label="Details">
                         @if($detailParts->isNotEmpty())
                         <div class="product-attributes">
                             @foreach($detailParts as $detail)<span>{{ $detail }}</span>@endforeach
@@ -118,22 +118,22 @@
                         <span class="product-secondary">Not specified</span>
                         @endif
                     </td>
-                    <td>
+                    <td data-label="Supplier">
                         @if($variant->supplier)
                         <a href="{{ route('suppliers.show', $variant->supplier) }}" class="product-supplier">{{ $variant->supplier->name }}</a>
                         @else
                         <span class="product-secondary">No supplier</span>
                         @endif
                     </td>
-                    <td class="text-right product-selling-price">&#8369;{{ number_format((float) $variant->selling_price, 2) }}</td>
-                    <td class="text-right product-cost-price">&#8369;{{ number_format((float) $variant->cost_price, 2) }}</td>
-                    <td>
+                    <td data-label="Selling price" class="text-right product-selling-price">&#8369;{{ number_format((float) $variant->selling_price, 2) }}</td>
+                    <td data-label="Cost price" class="text-right product-cost-price">&#8369;{{ number_format((float) $variant->cost_price, 2) }}</td>
+                    <td data-label="Stock">
                         <div class="product-stock product-stock--{{ $stockState['class'] }}">
                             <strong>{{ number_format($quantity) }}</strong>
                             <span>{{ $stockState['label'] }}</span>
                         </div>
                     </td>
-                    <td>
+                    <td data-label="Actions">
                         <div class="table-actions inventory-row-actions">
                             <a href="{{ route('inventory.show', $variant) }}" class="btn btn-secondary btn-sm product-action-btn" title="View variant" aria-label="View {{ $variant->variant_code }}">
                                 <i class="bi bi-eye" aria-hidden="true"></i>

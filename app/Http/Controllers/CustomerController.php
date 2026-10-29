@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\TransactionPayment;
 use App\Services\AccountsReceivableService;
 use App\Services\CustomerCreditService;
+use App\Support\CaseInsensitiveSearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -31,7 +32,7 @@ class CustomerController extends Controller
             ->when($search !== '', function ($query) use ($search) {
                 $query->where(function ($query) use ($search) {
                     foreach (['customer_name', 'customer_code', 'phone', 'email', 'address'] as $column) {
-                        $query->orWhere($column, 'like', '%'.$search.'%');
+                        CaseInsensitiveSearch::orWhere($query, $column, $search);
                     }
                 });
             })

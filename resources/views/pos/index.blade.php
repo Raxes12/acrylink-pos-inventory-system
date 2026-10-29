@@ -232,6 +232,15 @@
                     <div id="creditInitialCheckFields" hidden><input type="text" id="creditInitialCheckNumber" placeholder="Check number" oninput="recalculate()"><input type="text" id="creditInitialCheckBank" placeholder="Bank name" oninput="recalculate()"><input type="date" id="creditInitialCheckDate" onchange="recalculate()"></div>
                 </div>
 
+                <section class="sales-associate-panel" aria-labelledby="salesAssociateLabel">
+                    <div class="sales-associate-icon" aria-hidden="true"><i class="bi bi-person-badge"></i></div>
+                    <label class="payment-field" for="salesAssociate">
+                        <span id="salesAssociateLabel">Sales associate <em>Optional</em></span>
+                        <input type="text" id="salesAssociate" maxlength="120" autocomplete="off" placeholder="Who assisted this transaction?">
+                    </label>
+                    <p>Recorded on the receipt separately from the cashier.</p>
+                </section>
+
                 <div class="checkout-payment-summary">
                     <div class="payment-section-title"><span>Payment details</span><span class="payment-step">Step 2 of 2</span></div>
                     <label class="checkout-row checkout-tender-row" for="payment"><span id="paymentLabel">Cash Received</span><span class="checkout-money-input"><span aria-hidden="true">&#8369;</span><input type="number" id="payment" min="0" max="99999999.99" step="0.01" placeholder="0.00" oninput="recalculate()"></span></label>
@@ -278,6 +287,7 @@
     <input type="hidden" name="check_bank" id="formCheckBank">
     <input type="hidden" name="check_date" id="formCheckDate">
     <input type="hidden" name="payment" id="formPayment">
+    <input type="hidden" name="sales_associate" id="formSalesAssociate">
     <input type="hidden" name="customer_id" id="formCustomerId">
     <input type="hidden" name="credit_term_days" id="formCreditTermDays">
     <input type="hidden" name="initial_payment_method" id="formInitialPaymentMethod">

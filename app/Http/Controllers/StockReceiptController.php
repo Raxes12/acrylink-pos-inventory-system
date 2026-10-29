@@ -9,6 +9,7 @@ use App\Models\StockReceipt;
 use App\Models\StockReceiptItem;
 use App\Models\Supplier;
 use App\Services\InventoryMonitoringService;
+use App\Support\CaseInsensitiveSearch;
 use App\Support\InputLimits;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -59,10 +60,10 @@ class StockReceiptController extends Controller
             ->where('status', 'active')
             ->when($term !== '', function ($query) use ($term) {
                 $query->where(function ($search) use ($term) {
-                    $search->where('name', 'like', "%{$term}%")
-                        ->orWhere('contact', 'like', "%{$term}%")
-                        ->orWhere('phone', 'like', "%{$term}%")
-                        ->orWhere('email', 'like', "%{$term}%");
+                    CaseInsensitiveSearch::where($search, 'name', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'contact', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'phone', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'email', $term);
                 });
             })
             ->orderBy('name')
@@ -80,11 +81,13 @@ class StockReceiptController extends Controller
         $variants = $this->variantSearchQuery()
             ->when($term !== '', function ($query) use ($term) {
                 $query->where(function ($search) use ($term) {
-                    $search->where('product_variants.variant_code', 'like', "%{$term}%")
-                        ->orWhere('product_variants.barcode', 'like', "%{$term}%")
-                        ->orWhere('product_variants.part_number', 'like', "%{$term}%")
-                        ->orWhereHas('product', fn ($product) => $product->where('name', 'like', "%{$term}%"))
-                        ->orWhereHas('brand', fn ($brand) => $brand->where('name', 'like', "%{$term}%"));
+                    CaseInsensitiveSearch::where($search, 'product_variants.variant_code', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'product_variants.barcode', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'product_variants.part_number', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'product_variants.size', $term);
+                    CaseInsensitiveSearch::orWhere($search, 'product_variants.color', $term);
+                    $search->orWhereHas('product', fn ($product) => CaseInsensitiveSearch::where($product, 'name', $term))
+                        ->orWhereHas('brand', fn ($brand) => CaseInsensitiveSearch::where($brand, 'name', $term));
                 });
             })
             ->orderBy('products.name')

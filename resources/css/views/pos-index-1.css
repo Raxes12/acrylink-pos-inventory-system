@@ -640,8 +640,7 @@
     text-transform: uppercase;
 }
 
-.cart-price-block strong,
-.cart-total-block strong {
+.cart-price-block strong {
     overflow: hidden;
     color: var(--text);
     font-size: 11px;
@@ -652,7 +651,26 @@
 .checkout-action-hint { margin: 7px 0 0; color: var(--muted); font-size: 9px; line-height: 1.4; text-align: center; }
 
 .cart-total-block { text-align: right; }
-.cart-total-block strong { color: var(--ops-accent); font-size: 12px; }
+.cart-total-label { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.cart-total-label small { color: var(--ops-accent); font-size: 8px; font-weight: 850; letter-spacing: .02em; text-transform: none; }
+
+.cart-line-total-input {
+    display: grid;
+    grid-template-columns: 18px minmax(0, 1fr);
+    min-height: 30px;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--ops-accent) 38%, var(--border));
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--ops-accent) 5%, var(--card));
+    color: var(--ops-accent);
+}
+
+.cart-line-total-input > span { padding-left: 7px; font-size: 11px; font-weight: 850; }
+.cart-line-total-input input { width: 100%; min-width: 0; min-height: 28px; padding: 3px 7px 3px 3px; border: 0; outline: 0; appearance: textfield; -moz-appearance: textfield; background: transparent; color: var(--ops-accent); font-size: 12px; font-weight: 850; text-align: right; }
+.cart-line-total-input input::-webkit-inner-spin-button,
+.cart-line-total-input input::-webkit-outer-spin-button { margin: 0; -webkit-appearance: none; }
+.cart-line-total-input:focus-within { border-color: var(--ops-accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--ops-accent) 14%, transparent); }
 
 .cart-discount-input {
     display: grid;
@@ -1302,7 +1320,8 @@
     .product-price { font-size: 15px; }
     .cart-item-controls { grid-template-columns: minmax(0, 1fr) auto; }
     .cart-discount-block { min-width: 96px; }
-    .cart-total-block { grid-column: 1 / -1; grid-template-columns: 1fr auto; align-items: baseline; text-align: left; }
+    .cart-total-block { grid-column: 1 / -1; grid-template-columns: 1fr minmax(112px, 42%); align-items: center; text-align: left; }
+    .cart-total-label { justify-content: flex-start; }
     .cart-items { max-height: 300px; padding-inline: 12px; }
     .checkout-panel { padding: 12px; }
     .checkout-money-input { width: min(170px, 62%); }
@@ -1332,7 +1351,8 @@ body.pos-modal-open { overflow: hidden; }
 .cart-price-block,.cart-qty-block,.cart-discount-block,.cart-total-block { gap: 2px; }
 .cart-price-block > span,.cart-qty-block > span,.cart-discount-block > span:first-child,.cart-total-block > span { font-size: 8px; letter-spacing: .035em; }
 .cart-price-block strong { font-size: 10px; }
-.cart-total-block strong { font-size: 11px; }
+.cart-line-total-input { grid-template-columns: 16px minmax(0,1fr); min-height: 27px; }
+.cart-line-total-input input { min-height: 25px; font-size: 11px; }
 .cart-qty-wrap { grid-template-columns: 24px 36px 24px; gap: 2px; }
 .cart-qty-btn { width: 24px; height: 27px; }
 .cart-qty-input { width: 36px; min-height: 27px; font-size: 11px; }
@@ -1414,6 +1434,11 @@ body.pos-modal-open { overflow: hidden; }
 .payment-field > span { color: var(--muted); font-size: 9px; font-weight: 850; letter-spacing: .055em; text-transform: uppercase; }
 .payment-field > span b { color: var(--danger); }
 .payment-field input,.payment-field select { width: 100%; }
+.payment-field > span em { margin-left: 4px; color: var(--muted); font-size: 8px; font-style: normal; font-weight: 700; letter-spacing: 0; text-transform: none; }
+.sales-associate-panel { display: grid; grid-template-columns: 30px minmax(0,1fr); column-gap: 9px; row-gap: 3px; margin-top: 14px; padding: 11px; border: 1px solid color-mix(in srgb,var(--accent) 20%,var(--border)); border-radius: 10px; background: color-mix(in srgb,var(--accent) 4%,var(--card)); }
+.sales-associate-icon { display: grid; grid-row: span 2; width: 30px; height: 30px; place-items: center; border-radius: 8px; color: var(--accent); background: color-mix(in srgb,var(--accent) 10%,var(--soft)); font-size: 14px; }
+.sales-associate-panel .payment-field { gap: 4px; }
+.sales-associate-panel p { grid-column: 2; margin: 0; color: var(--muted); font-size: 9px; line-height: 1.35; }
 .payment-field-grid { grid-template-columns: minmax(0,1fr) 165px; }
 .credit-account-summary { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0; margin-top: 12px; overflow: hidden; border: 1px solid var(--border); border-radius: 8px; background: var(--card); }
 .credit-account-summary div { display: grid; gap: 2px; padding: 8px 10px; border-bottom: 1px solid var(--border); }

@@ -1421,3 +1421,208 @@
     }
 
     /* Mobile */ @media (max-width: 640px) { .variant-search-results, .supplier-search-results { max-height: 260px; } .variant-option-main { align-items: flex-start; flex-direction: column; gap: 5px; } .variant-option-code { align-self: flex-start; } }
+
+    /* Inventory phone layout: readable records instead of a wide, side-scrolling table. */
+    @media (max-width: 720px) {
+        .inventory-local-nav {
+            grid-template-columns: none;
+            grid-auto-columns: minmax(158px, 78%);
+            grid-auto-flow: column;
+            padding: 5px;
+            scroll-padding-inline: 5px;
+            scroll-snap-type: x mandatory;
+        }
+
+        .inventory-local-nav a {
+            min-width: 0;
+            scroll-snap-align: start;
+        }
+
+        .products-page .page-header,
+        .stock-toolbar {
+            gap: 12px;
+        }
+
+        .stock-filter-footer {
+            gap: 12px;
+        }
+
+        .stock-filter-chips {
+            display: flex;
+            flex-wrap: nowrap;
+            width: calc(100% + 24px);
+            margin-inline: -12px;
+            padding-inline: 12px;
+            padding-bottom: 4px;
+            overflow-x: auto;
+            scrollbar-width: thin;
+        }
+
+        .stock-filter-chip {
+            flex: 0 0 auto;
+            min-height: 36px;
+        }
+
+        .products-card .table-wrap,
+        .stock-card .table-wrap {
+            overflow: visible;
+            border-bottom: 0;
+        }
+
+        .inventory-products-table,
+        .stock-table,
+        .movement-table {
+            display: block;
+            min-width: 0;
+        }
+
+        .inventory-products-table thead,
+        .stock-table thead,
+        .movement-table thead {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            overflow: hidden;
+            clip: rect(0 0 0 0);
+            clip-path: inset(50%);
+            white-space: nowrap;
+        }
+
+        .inventory-products-table tbody,
+        .stock-table tbody,
+        .movement-table tbody {
+            display: grid;
+            gap: 10px;
+            padding: 10px;
+            background: color-mix(in srgb, var(--soft) 62%, var(--card));
+        }
+
+        .inventory-products-table tbody tr,
+        .stock-table tbody tr,
+        .movement-table tbody tr {
+            display: grid;
+            grid-template-columns: 1fr;
+            overflow: hidden;
+            padding: 0;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: var(--card);
+            box-shadow: 0 4px 14px rgba(15, 23, 42, .05);
+        }
+
+        .inventory-products-table tbody td,
+        .stock-table tbody td,
+        .movement-table tbody td {
+            display: grid;
+            grid-template-columns: minmax(104px, 112px) minmax(0, 1fr);
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+            min-height: 60px;
+            padding: 10px 13px;
+            border: 0;
+            border-bottom: 1px solid var(--border);
+            background: transparent !important;
+            text-align: left !important;
+            white-space: normal;
+        }
+
+        .inventory-products-table tbody td:nth-child(odd),
+        .stock-table tbody td:nth-child(odd),
+        .movement-table tbody td:nth-child(odd) {
+            padding-right: 13px;
+        }
+
+        .inventory-products-table tbody td::before,
+        .stock-table tbody td::before,
+        .movement-table tbody td::before {
+            content: attr(data-label);
+            color: var(--muted);
+            font-size: 9px;
+            font-weight: 850;
+            letter-spacing: .06em;
+            line-height: 1.25;
+            text-transform: uppercase;
+        }
+
+        .inventory-products-table tbody td:last-child,
+        .stock-table tbody td:last-child,
+        .movement-table tbody td:last-child {
+            border-bottom: 0;
+        }
+
+        .inventory-products-table .product-cell {
+            grid-template-columns: minmax(104px, 112px) 46px minmax(0, 1fr);
+            align-items: center;
+        }
+
+        .inventory-products-table .product-cell::before {
+            grid-column: auto;
+        }
+
+        .inventory-products-table .product-stock,
+        .stock-table .stock-onhand,
+        .movement-table .stock-onhand {
+            font-size: 16px;
+        }
+
+        .inventory-row-actions,
+        .stock-table .table-actions {
+            justify-content: flex-start;
+        }
+
+        .movement-remarks {
+            max-width: none;
+            overflow: visible;
+            text-overflow: clip;
+            white-space: normal;
+        }
+
+        .inventory-products-table tbody tr:has(.empty-state),
+        .stock-table tbody tr:has(.empty-state),
+        .movement-table tbody tr:has(.empty-state) {
+            display: block;
+            padding: 0;
+        }
+
+        .inventory-products-table .empty-state,
+        .stock-table .empty-state,
+        .movement-table .empty-state {
+            display: block;
+            padding: 30px 16px;
+            text-align: center !important;
+        }
+
+        .inventory-products-table .empty-state::before,
+        .stock-table .empty-state::before,
+        .movement-table .empty-state::before {
+            content: none;
+        }
+
+        .receipt-summary-card {
+            padding: 15px;
+        }
+
+        .receipt-summary-grid {
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+    }
+
+    @media (max-width: 420px) {
+        .inventory-products-table tbody td,
+        .stock-table tbody td,
+        .movement-table tbody td {
+            grid-template-columns: minmax(88px, 96px) minmax(0, 1fr);
+            gap: 9px;
+            padding-inline: 10px;
+        }
+
+        .inventory-products-table .product-cell {
+            grid-template-columns: minmax(88px, 96px) 42px minmax(0, 1fr);
+        }
+
+        .toolbar-actions {
+            grid-template-columns: 1fr;
+        }
+    }

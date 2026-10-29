@@ -39,6 +39,7 @@ class DashboardBusinessIntelligenceTest extends TestCase
                 'topProducts',
                 'categoryPerformance',
                 'cashierPerformance',
+                'salesAssociatePerformance',
             ])
             ->assertViewHas('trendSummary')
             ->assertViewHas('salesPeriod', 'monthly')
@@ -53,6 +54,7 @@ class DashboardBusinessIntelligenceTest extends TestCase
             ->assertSee('Top Selling Products')
             ->assertSee('Category Sales Distribution')
             ->assertSee('Cashier Sales Performance')
+            ->assertSee('Sales Associate Performance')
             ->assertSee('id="dashboardChartData"', false)
             ->assertSee('Inventory value');
     }

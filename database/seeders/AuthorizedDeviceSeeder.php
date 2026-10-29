@@ -12,8 +12,8 @@ class AuthorizedDeviceSeeder extends Seeder
         $devices = [
             [
                 'device_name' => 'HGHGY',
-                'mac_address' => 'C8:8A:9A:85:2D:84',
-                'ip_address' => '192.168.1.37',
+                'mac_address' => '00:00:00:00:00:00',
+                'ip_address' => '103.171.20.186',
                 'status' => 'authorized',
             ],
             [

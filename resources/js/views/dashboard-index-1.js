@@ -153,6 +153,11 @@ if (chartDataElement) {
             aria: row => `${row.label}: ${peso.format(row.value)}, ${row.transactions} transactions`,
             tooltip: row => `${row.label}\nSales processed: ${peso.format(row.value)}\nTransactions: ${Number(row.transactions).toLocaleString('en-PH')}`,
         });
+        renderHorizontalChart('salesAssociateChart', chartData.salesAssociates, {
+            value: row => peso.format(row.value),
+            aria: row => `${row.label}: ${peso.format(row.value)} in assisted sales across ${row.transactions} transactions`,
+            tooltip: row => `${row.label}\nSales assisted: ${peso.format(row.value)}\nTransactions: ${Number(row.transactions).toLocaleString('en-PH')}`,
+        });
 
         const categoryContainer = document.getElementById('categoryChart');
         if (categoryContainer && Array.isArray(chartData.categories) && chartData.categories.length > 0) {

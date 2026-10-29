@@ -11,15 +11,16 @@ use App\Models\Role;
 use App\Models\SecurityRule;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class IntrusionDetectionService
 {
     private array $ruleCache = [];
+
     public function recordLoginAttempt(Request $request, string $username, ?User $user, string $status, ?string $reason = null): void
     {
         LoginAttempt::create([
@@ -114,7 +115,7 @@ class IntrusionDetectionService
         $role = $user->roleLabel();
         $requiredRoles = collect($allowedRoles)->implode(', ');
 
-        $attempts = \App\Models\AuditLog::where('action', 'UNAUTHORIZED_ACCESS')
+        $attempts = AuditLog::where('action', 'UNAUTHORIZED_ACCESS')
             ->where('user_id', $user->id)
             ->where('ip_address', $request->ip())
             ->where('timestamp', '>=', now()->subMinutes($window))
@@ -156,8 +157,7 @@ class IntrusionDetectionService
         ?SecurityRule $rule = null,
         ?string $sourceModule = null,
         array $context = []
-    ): IntrusionEvent
-    {
+    ): IntrusionEvent {
         $data = [
             'user_id' => $user?->id,
             'rule_id' => $rule?->security_rule_id,
@@ -182,7 +182,7 @@ class IntrusionDetectionService
         }
 
         foreach (['rule_id', 'source_module', 'request_path', 'request_method', 'user_role', 'required_roles', 'user_agent'] as $column) {
-            if (!Schema::hasColumn('intrusion_events', $column)) {
+            if (! Schema::hasColumn('intrusion_events', $column)) {
                 unset($data[$column]);
             }
         }
@@ -217,7 +217,7 @@ class IntrusionDetectionService
 
     private function recentUnauthorizedEndpointAccessExists(Request $request, User $user, string $path, string $method, int $window): bool
     {
-        if (!Schema::hasTable('intrusion_events')) {
+        if (! Schema::hasTable('intrusion_events')) {
             return false;
         }
 
@@ -242,8 +242,7 @@ class IntrusionDetectionService
         ?User $user = null,
         string $severity = 'critical',
         ?SecurityRule $rule = null
-    ): ?IntrusionEvent
-    {
+    ): ?IntrusionEvent {
         $activeRule = $rule ?? $this->securityRule('rogue_device');
         if ($activeRule === false) {
             return null;
@@ -331,7 +330,7 @@ class IntrusionDetectionService
     {
         $ipAddress = $request->ip();
 
-        if (!$ipAddress) {
+        if (! $ipAddress) {
             return;
         }
 
@@ -343,7 +342,7 @@ class IntrusionDetectionService
             AuditLog::record('SECURITY', "Auto-blocked IP {$ipAddress}: {$reason}");
         }
 
-        if ($user && !$user->isAdmin()) {
+        if ($user && ! $user->isAdmin()) {
             $userReason = "Auto-blocked user {$user->username} after {$attempts} failed login attempts within {$window} minutes.";
             $userBlock = app(BlockedEntityService::class)->blockUser($user, $userReason);
 
@@ -364,7 +363,7 @@ class IntrusionDetectionService
         $deviceBlock = $blocklist->blockMatchingDevice($request, $reason, $user);
         $macBlock = $blocklist->blockMac($macAddress, $reason);
 
-        if (!$macBlock) {
+        if (! $macBlock) {
             $macBlock = $blocklist->blockIp($ipAddress, $reason);
         }
 
@@ -436,7 +435,7 @@ class IntrusionDetectionService
 
     private function createAlertIfNeeded(IntrusionEvent $event): void
     {
-        if (!Schema::hasTable('intrusion_alerts')) {
+        if (! Schema::hasTable('intrusion_alerts')) {
             return;
         }
 
@@ -484,10 +483,10 @@ class IntrusionDetectionService
     public function sendAlertEmails(IntrusionAlert $alert): bool
     {
         if (
-            !Schema::hasTable('notification_logs')
+            ! Schema::hasTable('notification_logs')
             || (
                 Schema::hasColumn('intrusion_alerts', 'alert_channel')
-                && !in_array($alert->alert_channel, ['email', 'both'], true)
+                && ! in_array($alert->alert_channel, ['email', 'both'], true)
             )
         ) {
             return false;
@@ -513,11 +512,12 @@ class IntrusionDetectionService
                 'send_status' => 'pending',
             ]);
 
-            if (!$this->mailIsConfigured()) {
+            if (! $this->mailIsConfigured()) {
                 $log->update([
                     'send_status' => 'failed',
                     'error_message' => 'Mail is not configured.',
                 ]);
+
                 continue;
             }
 
@@ -544,12 +544,8 @@ class IntrusionDetectionService
 
     private function adminAlertRecipients()
     {
-        $configuredEmail = trim((string) config('services.security_alert_email'));
-
-        if ($configuredEmail !== '') {
-            return collect([$configuredEmail])->unique()->values();
-        }
-
+        // Security recipients are managed through active Administrator accounts.
+        // This keeps alerts aligned with role changes and supports multiple admins.
         if (Schema::hasTable('roles') && Schema::hasColumn('users', 'role_id')) {
             $roleRecipients = User::where('status', 'active')
                 ->whereNotNull('email')
@@ -559,11 +555,10 @@ class IntrusionDetectionService
                 ->unique()
                 ->values();
 
-            if ($roleRecipients->isNotEmpty()) {
-                return $roleRecipients;
-            }
+            return $roleRecipients;
         }
 
+        // Compatibility for installations that predate the roles table.
         return User::where('role', User::ROLE_ADMIN)
             ->where('status', 'active')
             ->whereNotNull('email')
@@ -596,7 +591,7 @@ class IntrusionDetectionService
     {
         $mailer = config('mail.default');
 
-        if (!$mailer) {
+        if (! $mailer) {
             return false;
         }
 
@@ -616,13 +611,13 @@ class IntrusionDetectionService
             return $this->ruleCache[$name];
         }
 
-        if (!Schema::hasTable('security_rules')) {
+        if (! Schema::hasTable('security_rules')) {
             return $this->ruleCache[$name] = null;
         }
 
         $rule = SecurityRule::where('rule_name', $name)->first();
 
-        if ($rule && !$rule->is_active) {
+        if ($rule && ! $rule->is_active) {
             return $this->ruleCache[$name] = false;
         }
 

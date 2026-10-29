@@ -7,6 +7,7 @@ use App\Models\ProductCategory;
 use App\Models\Unit;
 use App\Services\SystemSettingsService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class SettingsController extends Controller
 {
@@ -21,6 +22,8 @@ class SettingsController extends Controller
         return view('settings.index', [
             'section' => $section,
             'settings' => $settings->all(),
+            'businessLogoUrl' => $settings->businessLogoUrl(),
+            'hasCustomBusinessLogo' => $settings->hasCustomBusinessLogo(),
             'categoryCount' => ProductCategory::count(),
             'units' => Unit::orderBy('name')->get(),
             'databaseDriver' => config('database.default'),
@@ -34,14 +37,32 @@ class SettingsController extends Controller
             'business_address' => ['nullable', 'string', 'max:255'],
             'business_contact_number' => ['nullable', 'string', 'max:40'],
             'business_email' => ['nullable', 'email', 'max:120'],
+            'business_logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+            'reset_business_logo' => ['nullable', 'boolean'],
         ]);
+
+        $previousLogoPath = (string) $settings->get('business.logo_path', SystemSettingsService::DEFAULTS['business.logo_path']);
+        $logoPath = $previousLogoPath;
+
+        if ($request->boolean('reset_business_logo')) {
+            $logoPath = SystemSettingsService::DEFAULTS['business.logo_path'];
+        }
+
+        if ($request->hasFile('business_logo')) {
+            $logoPath = $request->file('business_logo')->store('business-logos', 'public');
+        }
 
         $settings->putMany([
             'business.name' => $data['business_name'],
             'business.address' => $data['business_address'] ?? '',
             'business.contact_number' => $data['business_contact_number'] ?? '',
             'business.email' => $data['business_email'] ?? '',
+            'business.logo_path' => $logoPath,
         ], 'general');
+
+        if ($previousLogoPath !== $logoPath && str_starts_with($previousLogoPath, 'business-logos/')) {
+            Storage::disk('public')->delete($previousLogoPath);
+        }
         AuditLog::record('SETTINGS', 'Updated general business settings.');
 
         return back()->with('success', 'General settings saved.');

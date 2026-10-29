@@ -97,6 +97,13 @@
             @empty<div class="report-empty"><i class="bi bi-people" aria-hidden="true"></i><strong>No cashier activity</strong><span>No cashier sales were found for this period.</span></div>@endforelse
         </div>
     </article>
+    <article class="card report-analytics-card">
+        <div class="card-header"><div><span class="card-title">Sales by Associate</span><span class="report-card-caption">Net sales attributed to the staff who assisted each customer</span></div><span class="report-count">{{ $bySalesAssociate->count() }} associates</span></div>
+        <div class="card-body report-bars">@php $maxAssociate = $bySalesAssociate->max() ?: 1; @endphp
+            @forelse($bySalesAssociate as $name => $amt)<div class="cashier-row"><span class="cashier-avatar" aria-hidden="true">{{ strtoupper(substr($name, 0, 1)) }}</span><div class="cashier-performance"><div class="cashier-heading"><strong title="{{ $name }}">{{ $name }}</strong><span>&#8369;{{ number_format($amt, 2) }}</span></div><div class="sales-track"><div class="sales-fill sales-fill--cashier" style="width:{{ max(2, ($amt / $maxAssociate) * 100) }}%"></div></div></div></div>
+            @empty<div class="report-empty"><i class="bi bi-person-badge" aria-hidden="true"></i><strong>No sales associate activity</strong><span>Associate performance appears after a cashier records who assisted a sale.</span></div>@endforelse
+        </div>
+    </article>
 </section>
 
 <div class="report-lower-grid">
@@ -111,10 +118,10 @@
 
 <section class="card report-table-card" data-live-results>
     <div class="card-header"><div><span class="card-title"><i class="bi bi-receipt-cutoff" aria-hidden="true"></i> Transaction History</span><span class="report-card-caption">Receipt activity included in {{ $reportLabel }}</span></div><span class="tag tag--accent">{{ $transactions->total() }} transactions</span></div>
-    <div class="table-wrap" tabindex="0" role="region" aria-label="Sales transaction history"><table><thead><tr><th>Receipt</th><th>Date &amp; Time</th><th>Cashier</th><th>Payment</th><th class="text-right">Discount</th><th class="text-right">Refunded</th><th class="text-right">Net Total</th><th>Action</th></tr></thead><tbody>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Sales transaction history"><table><thead><tr><th>Receipt</th><th>Date &amp; Time</th><th>Staff</th><th>Payment</th><th class="text-right">Discount</th><th class="text-right">Refunded</th><th class="text-right">Net Total</th><th>Action</th></tr></thead><tbody>
         @forelse($transactions as $t)
             @php $dt = \Carbon\Carbon::parse($t->date->format('Y-m-d').' '.$t->time); $refundedAmount = $t->totalRefunded(); @endphp
-            <tr><td><a class="report-receipt" href="{{ route('pos.receipt', $t) }}">{{ $t->receipt_no }}</a></td><td><div class="report-date"><strong>{{ $dt->format('M d, Y') }}</strong><span>{{ $dt->format('h:i A') }}</span></div></td><td><strong>{{ $t->cashier?->name ?? 'Unknown' }}</strong></td><td><span class="status status-active">{{ \App\Models\Transaction::paymentMethodLabel($t->payment_method) }}</span></td><td class="text-right report-discount">@if($t->netDiscount() > 0)&#8369;{{ number_format($t->netDiscount(), 2) }}@else&mdash;@endif</td><td class="text-right {{ $refundedAmount > 0 ? 'report-refund' : 'text-muted' }}">@if($refundedAmount > 0)&minus; &#8369;{{ number_format($refundedAmount, 2) }}@else&mdash;@endif</td><td class="text-right report-money">&#8369;{{ number_format($t->netTotal(), 2) }}</td><td><a href="{{ route('pos.receipt', $t) }}" class="btn btn-secondary btn-sm report-view"><i class="bi bi-eye" aria-hidden="true"></i> View</a></td></tr>
+            <tr><td><a class="report-receipt" href="{{ route('pos.receipt', $t) }}">{{ $t->receipt_no }}</a></td><td><div class="report-date"><strong>{{ $dt->format('M d, Y') }}</strong><span>{{ $dt->format('h:i A') }}</span></div></td><td><div class="report-staff"><strong>{{ $t->cashier?->name ?? 'Unknown' }}</strong>@if($t->sales_associate)<small>Associate: {{ $t->sales_associate }}</small>@endif</div></td><td><span class="status status-active">{{ \App\Models\Transaction::paymentMethodLabel($t->payment_method) }}</span></td><td class="text-right report-discount">@if($t->netDiscount() > 0)&#8369;{{ number_format($t->netDiscount(), 2) }}@else&mdash;@endif</td><td class="text-right {{ $refundedAmount > 0 ? 'report-refund' : 'text-muted' }}">@if($refundedAmount > 0)&minus; &#8369;{{ number_format($refundedAmount, 2) }}@else&mdash;@endif</td><td class="text-right report-money">&#8369;{{ number_format($t->netTotal(), 2) }}</td><td><a href="{{ route('pos.receipt', $t) }}" class="btn btn-secondary btn-sm report-view"><i class="bi bi-eye" aria-hidden="true"></i> View</a></td></tr>
         @empty<tr><td colspan="8"><div class="report-empty report-empty--table"><strong>No transactions found</strong><span>Choose another reporting period to view sales activity.</span></div></td></tr>@endforelse
     </tbody></table></div>
     <div class="view-blades-footer"><div class="pagination-summary">Showing {{ $transactions->firstItem() ?? 0 }}-{{ $transactions->lastItem() ?? 0 }} of {{ $transactions->total() }} transactions</div>

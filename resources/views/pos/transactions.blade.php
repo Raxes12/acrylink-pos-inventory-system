@@ -32,7 +32,7 @@
 </div>
 
 <form method="GET" action="{{ route('pos.transactions') }}" class="filter-bar transaction-filter" data-live-filter>
-    <div class="transaction-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Search receipt, customer, cashier, or payment..." autocomplete="off" aria-label="Search transactions"></div>
+    <div class="transaction-search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" name="search" value="{{ $filters['search'] ?? '' }}" placeholder="Search receipt, customer, cashier, or sales associate..." autocomplete="off" aria-label="Search transactions"></div>
     <label class="transaction-filter-field"><span>Status</span><select name="status" class="filter-field--md">
             <option value="">All Statuses</option>
             @foreach($statuses as $value => $label)
@@ -64,7 +64,7 @@
                     <th>Payment</th>
                     <th class="text-right">Amounts</th>
                     <th>Credit Sale</th>
-                    <th>Cashier</th>
+                    <th>Staff</th>
                     <th>Transaction Status</th>
                     <th>Actions</th>
                 </tr>
@@ -96,7 +96,6 @@
                 $customerInitials = $transaction->customer
                     ? collect(explode(' ', $transaction->customer->customer_name))->filter()->take(2)->map(fn ($part) => strtoupper(substr($part, 0, 1)))->implode('')
                     : 'WI';
-                $cashierInitials = collect(explode(' ', $transaction->cashier?->name ?? 'Unknown'))->filter()->take(2)->map(fn ($part) => strtoupper(substr($part, 0, 1)))->implode('');
                 $daysUntilDue = $isCreditSale ? today()->diffInDays($transaction->creditSale->due_date, false) : null;
             @endphp
             <tr class="transaction-row transaction-row--{{ str_replace('_', '-', $status) }}">
@@ -119,7 +118,14 @@
                     @endif
                     <span class="status {{ $paymentStatusClass }}">{{ ucfirst(str_replace('_', ' ', $paymentStatus)) }}</span>
                 </td>
-                <td data-label="Cashier"><div class="transaction-cashier"><span class="transaction-cashier-avatar" aria-hidden="true">{{ $cashierInitials }}</span><strong>{{ $transaction->cashier?->username ?? 'Unknown' }}</strong></div></td>
+                <td data-label="Staff">
+                    <div class="transaction-staff">
+                        <div><small>Cashier</small><strong>{{ $transaction->cashier?->username ?? 'Unknown' }}</strong></div>
+                        @if($transaction->sales_associate)
+                        <div class="transaction-sales-associate"><small>Sales associate</small><strong>{{ $transaction->sales_associate }}</strong></div>
+                        @endif
+                    </div>
+                </td>
                 <td data-label="Transaction Status"><span class="status {{ $statusClass }}">{{ ucfirst(str_replace('_', ' ', $status)) }}</span></td>
                 <td data-label="Actions">
                     <div class="table-actions transaction-actions">

@@ -2,6 +2,23 @@
 @section('title', 'Customers')
 @section('page-label', 'Customers')
 
+@php
+$customerEditData = $customers->getCollection()->mapWithKeys(fn ($listedCustomer) => [(string) $listedCustomer->id => [
+    'id' => $listedCustomer->id,
+    'name' => $listedCustomer->customer_name,
+    'customer_name' => $listedCustomer->customer_name,
+    'customer_code' => $listedCustomer->customer_code,
+    'phone' => $listedCustomer->phone,
+    'email' => $listedCustomer->email,
+    'address' => $listedCustomer->address,
+    'status' => $listedCustomer->status,
+    'credit_enabled' => (bool) $listedCustomer->credit_enabled,
+    'credit_limit' => $listedCustomer->credit_limit,
+    'default_credit_term_days' => $listedCustomer->default_credit_term_days,
+    'update_url' => route('customers.update', $listedCustomer),
+]]);
+@endphp
+
 @section('content')
 <div class="customers-page">
 <x-page-header title="Customers" subtitle="Manage customer profiles, account access, and credit terms from one place.">
@@ -50,7 +67,7 @@
                             <a class="btn btn-secondary btn-sm user-action-btn" aria-label="View {{ $customer->customer_name }}" title="View customer" href="{{ route('customers.show', $customer) }}">
                                 <i class="bi bi-eye" aria-hidden="true"></i>
                             </a>
-                            <a class="btn btn-secondary btn-sm user-action-btn" aria-label="Edit {{ $customer->customer_name }}" title="Edit customer" href="{{ route('customers.edit', $customer) }}">
+                            <a class="btn btn-secondary btn-sm user-action-btn" aria-label="Edit {{ $customer->customer_name }}" title="Edit customer" href="{{ route('customers.edit', $customer) }}" data-open-customer-edit data-customer-id="{{ $customer->id }}">
                                 <i class="bi bi-pencil" aria-hidden="true"></i>
                             </a>
                         </div>
@@ -108,7 +125,7 @@
     </div>
 </div>
 
-<div id="createCustomerModal" class="modal-backdrop customer-modal-backdrop" style="display:none;" role="presentation" aria-hidden="true" data-open-on-error="{{ $errors->any() ? 'true' : 'false' }}">
+<div id="createCustomerModal" class="modal-backdrop customer-modal-backdrop" style="display:none;" role="presentation" aria-hidden="true" data-open-on-error="{{ old('_customer_edit') !== '1' && $errors->any() ? 'true' : 'false' }}">
     <div class="modal customer-create-modal" role="dialog" aria-modal="true" aria-labelledby="createCustomerTitle" aria-describedby="createCustomerDescription">
         <div class="modal-header customer-modal-header">
             <div><span class="modal-title" id="createCustomerTitle">Add Customer</span><span class="customer-modal-caption" id="createCustomerDescription">Create a customer profile and configure credit access.</span></div>
@@ -116,6 +133,7 @@
         </div>
         <form method="POST" action="{{ route('customers.store') }}" class="customer-create-form">
             @csrf
+            <input type="hidden" name="_customer_create" value="1">
             <div class="modal-body customer-modal-body">
                 <section class="customer-modal-section">
                     <div class="customer-modal-section-head"><span class="customer-modal-step">1</span><div><strong>Customer details</strong><span>Basic contact information used on sales and account records.</span></div></div>
@@ -138,6 +156,42 @@
                 </section>
             </div>
             <div class="modal-footer customer-modal-footer"><button type="button" class="btn btn-secondary" data-close-customer-create>Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-person-plus" aria-hidden="true"></i> Create Customer</button></div>
+        </form>
+    </div>
+</div>
+
+<script type="application/json" id="customerEditData">@json($customerEditData, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT)</script>
+<div id="editCustomerModal" class="modal-backdrop customer-modal-backdrop" style="display:none;" role="presentation" aria-hidden="true" data-open-on-error="{{ old('_customer_edit') === '1' && $errors->any() ? 'true' : 'false' }}" data-error-customer-id="{{ old('_customer_edit_id') }}">
+    <div class="modal customer-create-modal" role="dialog" aria-modal="true" aria-labelledby="editCustomerTitle" aria-describedby="editCustomerDescription">
+        <div class="modal-header customer-modal-header">
+            <div class="contact-modal-heading"><span class="contact-modal-avatar" data-edit-customer-avatar aria-hidden="true">C</span><span><span class="modal-title" id="editCustomerTitle">Edit Customer</span><span class="customer-modal-caption" id="editCustomerDescription" data-edit-customer-code>Update contact details and credit settings.</span></span></div>
+            <button type="button" class="modal-close-btn" data-close-customer-edit aria-label="Close customer edit form">&times;</button>
+        </div>
+        <form method="POST" action="" class="customer-create-form" data-customer-edit-form>
+            @csrf @method('PUT')
+            <input type="hidden" name="_customer_edit" value="1"><input type="hidden" name="_customer_edit_id" value="{{ old('_customer_edit_id') }}">
+            <div class="modal-body customer-modal-body">
+                <section class="customer-modal-section">
+                    <div class="customer-modal-section-head"><span class="customer-modal-step">1</span><div><strong>Customer details</strong><span>Keep contact information accurate for sales and account records.</span></div></div>
+                    <div class="customer-modal-fields">
+                        <div class="form-group customer-field-wide"><label for="edit_customer_name">Customer Name <span aria-hidden="true">*</span></label><input id="edit_customer_name" name="customer_name" value="{{ old('_customer_edit') === '1' ? old('customer_name') : '' }}" maxlength="150" required autocomplete="name"></div>
+                        <div class="form-group"><label for="edit_customer_phone">Phone</label><input id="edit_customer_phone" type="tel" name="phone" maxlength="30" autocomplete="tel" value="{{ old('_customer_edit') === '1' ? old('phone') : '' }}"></div>
+                        <div class="form-group"><label for="edit_customer_email">Email</label><input id="edit_customer_email" type="email" name="email" maxlength="255" autocomplete="email" value="{{ old('_customer_edit') === '1' ? old('email') : '' }}"></div>
+                        <div class="form-group customer-field-wide"><label for="edit_customer_address">Address</label><textarea id="edit_customer_address" name="address" rows="2" maxlength="2000">{{ old('_customer_edit') === '1' ? old('address') : '' }}</textarea></div>
+                    </div>
+                </section>
+                <section class="customer-modal-section">
+                    <div class="customer-modal-section-head"><span class="customer-modal-step">2</span><div><strong>Account and credit</strong><span>Control purchasing access, balance limits, and payment terms.</span></div></div>
+                    <div class="customer-modal-fields">
+                        <div class="form-group"><label for="edit_customer_status">Account Status <span aria-hidden="true">*</span></label><select id="edit_customer_status" name="status" required><option value="active" @selected(old('_customer_edit') === '1' && old('status') === 'active')>Active</option><option value="inactive" @selected(old('_customer_edit') === '1' && old('status') === 'inactive')>Inactive</option></select></div>
+                        <div class="form-group"><label for="edit_customer_credit_enabled">Customer Credit <span aria-hidden="true">*</span></label><select id="edit_customer_credit_enabled" name="credit_enabled" required><option value="0" @selected(old('_customer_edit') === '1' && old('credit_enabled') == '0')>Disabled</option><option value="1" @selected(old('_customer_edit') === '1' && old('credit_enabled') == '1')>Enabled</option></select></div>
+                        <div class="form-group"><label for="edit_customer_credit_limit">Credit Limit (PHP) <span aria-hidden="true">*</span></label><input id="edit_customer_credit_limit" type="number" name="credit_limit" min="0" max="9999999999.99" step="0.01" value="{{ old('_customer_edit') === '1' ? old('credit_limit') : '' }}" required><div class="form-help">Maximum unpaid balance.</div></div>
+                        <div class="form-group"><label for="edit_customer_credit_term">Default Term <span aria-hidden="true">*</span></label><div class="customer-term-input"><input id="edit_customer_credit_term" type="number" name="default_credit_term_days" min="1" max="65535" step="1" value="{{ old('_customer_edit') === '1' ? old('default_credit_term_days') : '' }}" required><span>days</span></div><div class="form-help">Used for new credit-sale due dates.</div></div>
+                    </div>
+                    <div class="customer-credit-note"><i class="bi bi-journal-check" aria-hidden="true"></i><span>Credit and account changes are recorded automatically in the audit log.</span></div>
+                </section>
+            </div>
+            <div class="modal-footer customer-modal-footer"><button type="button" class="btn btn-secondary" data-close-customer-edit>Cancel</button><button type="submit" class="btn btn-primary"><i class="bi bi-check-lg" aria-hidden="true"></i> Save Changes</button></div>
         </form>
     </div>
 </div>

@@ -39,14 +39,14 @@
             <tbody>
             @forelse($receipts as $receipt)
             <tr>
-                <td><a href="{{ route('stock-receipts.show', $receipt) }}" class="stock-code">{{ $receipt->receipt_no }}</a></td>
-                <td>{{ $receipt->date_received?->format('M j, Y') }}</td>
-                <td class="stock-muted">{{ $receipt->supplier?->name ?? 'No supplier' }}</td>
-                <td>{{ $receipt->items_count }}</td>
-                <td class="text-right fw-800" style="color:var(--accent2);">&#8369;{{ number_format((float) ($receipt->items_sum_total_cost ?? 0), 2) }}</td>
-                <td>{{ $receipt->receivedBy?->name ?? 'System Administrator' }}</td>
-                <td class="stock-muted">{{ $receipt->created_at?->format('M j, Y H:i') }}</td>
-                <td>
+                <td data-label="Receipt no."><a href="{{ route('stock-receipts.show', $receipt) }}" class="stock-code">{{ $receipt->receipt_no }}</a></td>
+                <td data-label="Date received">{{ $receipt->date_received?->format('M j, Y') }}</td>
+                <td data-label="Supplier" class="stock-muted">{{ $receipt->supplier?->name ?? 'No supplier' }}</td>
+                <td data-label="Items">{{ $receipt->items_count }}</td>
+                <td data-label="Total cost" class="text-right fw-800" style="color:var(--accent2);">&#8369;{{ number_format((float) ($receipt->items_sum_total_cost ?? 0), 2) }}</td>
+                <td data-label="Received by">{{ $receipt->receivedBy?->name ?? 'System Administrator' }}</td>
+                <td data-label="Created" class="stock-muted">{{ $receipt->created_at?->format('M j, Y H:i') }}</td>
+                <td data-label="Actions">
                     <div class="table-actions" style="justify-content:center;">
                         <a href="{{ route('stock-receipts.show', $receipt) }}" class="btn btn-secondary btn-sm" title="View receipt" aria-label="View receipt {{ $receipt->receipt_no }}">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>

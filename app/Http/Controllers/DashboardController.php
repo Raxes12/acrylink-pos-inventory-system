@@ -103,6 +103,9 @@ class DashboardController extends Controller
         $cashierPerformance = $isCashier
             ? collect()
             : $analytics->cashierPerformance($now->copy()->startOfMonth(), $now);
+        $salesAssociatePerformance = $isCashier
+            ? collect()
+            : $analytics->salesAssociatePerformance($now->copy()->startOfMonth(), $now);
 
         // Recent transactions
         $recentTxns = Transaction::with('cashier', 'refunds')
@@ -126,7 +129,7 @@ class DashboardController extends Controller
             'yesterdaySales', 'salesChange', 'avgSale', 'outOfStock',
             'recentIntrusionEvents', 'recentIntrusionAlerts', 'openIntrusionEvents', 'newIntrusionAlerts',
             'week', 'previousWeek', 'weekChange', 'month', 'previousMonth', 'monthChange',
-            'inventorySummary', 'categoryPerformance', 'cashierPerformance', 'trendSummary',
+            'inventorySummary', 'categoryPerformance', 'cashierPerformance', 'salesAssociatePerformance', 'trendSummary',
             'salesPeriod', 'salesPeriodDays', 'salesPeriodLabel',
             'todayFinancials', 'receivableSummary', 'partialReceivables', 'overdueReceivables'
         ));

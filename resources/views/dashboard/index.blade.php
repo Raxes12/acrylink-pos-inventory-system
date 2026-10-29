@@ -230,7 +230,7 @@
 @endif
 
 @if($canViewBusinessMetrics)
-<div class="grid-2 db-row db-insight-row">
+<div class="grid-3 db-row db-insight-row">
     <section class="card db-panel" aria-labelledby="categoryPerformanceHeading">
         <div class="card-header"><span class="card-title" id="categoryPerformanceHeading"><x-icon name="categories" /> Category Sales Distribution</span><span class="db-period-label">This month &middot; revenue</span></div>
         <div class="card-body dashboard-chart-body">
@@ -249,6 +249,17 @@
             <div id="cashierChart" class="horizontal-chart" aria-label="Cashier performance based on net sales processed"></div>
             @else
             <x-empty-state title="No cashier sales yet" message="Cashier performance will appear after sales are processed." />
+            @endif
+        </div>
+    </section>
+
+    <section class="card db-panel" aria-labelledby="salesAssociatePerformanceHeading">
+        <div class="card-header"><span class="card-title" id="salesAssociatePerformanceHeading"><x-icon name="users" /> Sales Associate Performance</span><span class="db-period-label">This month &middot; net sales</span></div>
+        <div class="card-body dashboard-chart-body">
+            @if($salesAssociatePerformance->isNotEmpty())
+            <div id="salesAssociateChart" class="horizontal-chart" aria-label="Sales associate performance based on net sales assisted"></div>
+            @else
+            <x-empty-state title="No sales associate activity yet" message="Performance appears after a cashier records a sales associate on a sale." />
             @endif
         </div>
     </section>
@@ -378,6 +389,13 @@
                 'label' => $cashier->cashier_name,
                 'value' => (float) $cashier->revenue,
                 'transactions' => (int) $cashier->transaction_count,
+            ];
+        })->values(),
+        'salesAssociates' => $salesAssociatePerformance->map(function ($associate) {
+            return [
+                'label' => $associate->sales_associate_name,
+                'value' => (float) $associate->revenue,
+                'transactions' => (int) $associate->transaction_count,
             ];
         })->values(),
     ];
