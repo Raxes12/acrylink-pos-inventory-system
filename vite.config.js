@@ -73,6 +73,7 @@ export default defineConfig(({ command, mode }) => {
 
                 // System settings
                 'resources/css/views/settings-1.css',
+                'resources/js/views/settings-1.js',
 
                 // ── Errors ────────────────────────────────────────────────
                 'resources/css/views/errors-403-1.css',
