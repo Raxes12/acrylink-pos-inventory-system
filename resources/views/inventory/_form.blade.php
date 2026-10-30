@@ -64,8 +64,17 @@
         <div class="inventory-form-fields inventory-form-fields--three">
             <div class="form-group">
                 <label>Variant Code *</label>
-                <input type="text" name="code" value="{{ old('code', $variant->variant_code ?? '') }}" placeholder="e.g. PRDV001-BLK" autocomplete="off" required autofocus>
-                <div class="form-help">Must be unique across all variants.</div>
+                @if(!$variant)
+                    <input type="hidden" name="suggested_code" value="{{ $suggestedVariantCode }}">
+                @endif
+                <input type="text" name="code" value="{{ old('code', $variant->variant_code ?? $suggestedVariantCode ?? '') }}" placeholder="e.g. PRDV-056" autocomplete="off" required autofocus>
+                <div class="form-help">
+                    @if($variant)
+                        Must be unique across all variants.
+                    @else
+                        The next available code is filled automatically. You may replace it when a custom code is required.
+                    @endif
+                </div>
             </div>
             <div class="form-group">
                 <label>Barcode</label>
@@ -83,7 +92,7 @@
                 <label>Unit *</label>
                 <select name="unit" required>
                     @foreach($units as $u)
-                    <option value="{{ $u }}" {{ old('unit', $variant->unit?->code ?? 'pcs') == $u ? 'selected' : '' }}>{{ $u }}</option>
+                    <option value="{{ $u }}" {{ old('unit', $variant->unit?->code ?? 'PCS') == $u ? 'selected' : '' }}>{{ $u }}</option>
                     @endforeach
                 </select>
             </div>

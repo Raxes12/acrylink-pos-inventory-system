@@ -43,7 +43,7 @@ class RouteAuthorizationTest extends TestCase
         $names = [];
         foreach (Route::getRoutes() as $route) {
             $action = $route->getActionName();
-            if (!str_starts_with($action, 'App\\Http\\Controllers\\')) {
+            if (! str_starts_with($action, 'App\\Http\\Controllers\\')) {
                 continue;
             }
             [$controller, $method] = explode('@', $action);
@@ -68,9 +68,13 @@ class RouteAuthorizationTest extends TestCase
     {
         $this->actingAs(User::where('role', User::ROLE_CASHIER)->firstOrFail());
         foreach (['dashboard', 'inventory.index', 'stock-receipts.index', 'suppliers.index',
-            'reports.index', 'reports.export', 'reports.export.pdf', 'audit.index', 'audit.results',
+            'reports.index', 'reports.export', 'reports.export.xlsx', 'reports.export.pdf',
+            'reports.inventory', 'reports.inventory.export', 'reports.inventory.export.xlsx', 'reports.inventory.export.pdf',
+            'reports.accounts-receivable', 'reports.accounts-receivable.export',
+            'reports.accounts-receivable.export.xlsx', 'reports.accounts-receivable.export.pdf',
+            'audit.index', 'audit.results',
             'security.index', 'security.devices', 'security.events', 'security.rules', 'settings.index', 'users.index', 'categories.index',
-            'customers.index', 'reports.accounts-receivable'] as $name) {
+            'customers.index'] as $name) {
             $this->get(route($name))->assertForbidden();
         }
         foreach (['inventory.store', 'stock-receipts.store', 'suppliers.store',

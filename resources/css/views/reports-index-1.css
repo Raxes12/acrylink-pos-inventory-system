@@ -138,6 +138,8 @@
 .report-export { gap: 7px; color: #fff; border-color: transparent; }
 .report-export--csv { background: #16865a; }
 .report-export--csv:hover { background: #10724b; }
+.report-export--excel { background: #217346; }
+.report-export--excel:hover { background: #185c37; }
 .report-export--pdf { background: #b4232c; }
 .report-export--pdf:hover { background: #991c24; }
 .report-period-panel { display: block; margin-bottom: 18px; padding: 0; overflow: hidden; }
@@ -495,6 +497,8 @@
 .report-export { box-shadow: none; }
 .report-export--csv { background: #20735b; }
 .report-export--csv:hover { background: #195f4b; }
+.report-export--excel { background: #217346; }
+.report-export--excel:hover { background: #185c37; }
 .report-export--pdf { background: #a53840; }
 .report-export--pdf:hover { background: #8e2f36; }
 

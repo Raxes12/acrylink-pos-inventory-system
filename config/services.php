@@ -31,6 +31,4 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'security_alert_email' => env('SECURITY_ALERT_EMAIL'),
-
 ];

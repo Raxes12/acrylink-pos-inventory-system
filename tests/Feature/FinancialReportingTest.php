@@ -94,11 +94,13 @@ class FinancialReportingTest extends TestCase
             'date_to' => today()->subDays(10)->toDateString(),
         ];
         $customPdfUrl = route('reports.export.pdf', $customFilters);
+        $customExcelUrl = route('reports.export.xlsx', $customFilters);
 
         $this->get(route('reports.index', $customFilters))->assertOk()
             ->assertViewHas('range', 'custom')
             ->assertViewHas('reportLabel', 'September 9, 2026')
             ->assertViewHas('exportPdfUrl', $customPdfUrl)
+            ->assertViewHas('exportExcelUrl', $customExcelUrl)
             ->assertSee('500.00')
             ->assertSee('RPT-CREDIT-OLD')
             ->assertDontSee('RPT-CASH-TODAY')
@@ -112,6 +114,11 @@ class FinancialReportingTest extends TestCase
             ->assertOk()
             ->assertHeader('content-type', 'application/pdf')
             ->assertDownload('sales-report-september-9-2026-20260919-120000.pdf');
+        $excel = $this->get($customExcelUrl)
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            ->assertDownload('sales-report-september-9-2026-20260919-120000.xlsx');
+        $this->assertStringStartsWith('PK', $excel->getContent());
     }
 
     public function test_accounts_receivable_report_displays_totals_status_and_aging_buckets(): void
@@ -190,6 +197,10 @@ class FinancialReportingTest extends TestCase
 
         $this->get(route('reports.accounts-receivable.export.pdf'))
             ->assertOk()->assertHeader('content-type', 'application/pdf');
+        $excel = $this->get(route('reports.accounts-receivable.export.xlsx'))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringStartsWith('PK', $excel->getContent());
         $salesCsv = $this->get(route('reports.export'))->assertOk()->streamedContent();
         $this->assertStringContainsString('SALES REPORT', $salesCsv);
         $this->assertStringNotContainsString('ACCOUNTS RECEIVABLE REPORT', $salesCsv);
@@ -200,6 +211,7 @@ class FinancialReportingTest extends TestCase
         $this->actingAs(User::where('role', User::ROLE_CASHIER)->firstOrFail())
             ->get(route('reports.accounts-receivable'))->assertForbidden();
         $this->get(route('reports.accounts-receivable.export'))->assertForbidden();
+        $this->get(route('reports.accounts-receivable.export.xlsx'))->assertForbidden();
         $this->get(route('reports.accounts-receivable.export.pdf'))->assertForbidden();
     }
 

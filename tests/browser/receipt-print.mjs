@@ -33,7 +33,7 @@ const server = createServer(async (request, response) => {
         <div class="receipt-served-by">Served by System Admin</div><table class="receipt-table">
         <thead class="receipt-column-head"><tr><th>Item</th><th>Amount</th></tr></thead><tbody>
         ${Array.from({length: count}, (_, index) => `<tr><td><div class="item-name">AIR FILTER ${index} ${index % 2 ? 'WITH EXTRA LONG PRODUCT DESCRIPTION' : ''}</div>
-        <div class="item-code">A-6012 / SAKURA / Unit: pcs</div><div class="item-calculation">2 ? 1,260.00</div></td>
+        <div class="item-code">A-6012 / SAKURA / Unit: PCS</div><div class="item-calculation">2 ? 1,260.00</div></td>
         <td class="money">2,520.00</td></tr>`).join('')}</tbody></table>
         <div class="receipt-item-count">${count} items</div><section class="receipt-summary">
         <div class="summary-total"><span>TOTAL</span><strong>? 12,270.00</strong></div>

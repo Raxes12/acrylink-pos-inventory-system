@@ -63,7 +63,7 @@ class POSCheckoutPaymentReferenceTest extends TestCase
             'part_number_snapshot' => $this->variant->part_number,
             'size_snapshot' => $this->variant->size,
             'color_snapshot' => $this->variant->color,
-            'unit_snapshot' => $this->variant->unit?->code ?? 'pcs',
+            'unit_snapshot' => $this->variant->unit?->code ?? 'PCS',
             'quantity' => 1,
             'unit_price' => number_format($unitPrice, 2, '.', ''),
             'subtotal' => number_format($unitPrice, 2, '.', ''),
@@ -136,6 +136,48 @@ class POSCheckoutPaymentReferenceTest extends TestCase
         $this->assertSame('2000.00', $transaction->items->first()->unit_price);
         $this->assertSame('2000.00', $transaction->items->first()->subtotal);
         $this->assertSame(number_format((float) $this->variant->selling_price, 2, '.', ''), $this->variant->fresh()->selling_price);
+    }
+
+    public function test_whole_peso_line_total_remains_exact_for_multiple_items(): void
+    {
+        $response = $this->post(route('pos.checkout'), $this->checkoutPayload('cash', null, [
+            'items' => [[
+                'variant_id' => $this->variant->id,
+                'quantity' => 3,
+                'unit_price' => 116.67,
+                'line_total' => 350,
+                'discount' => 0,
+            ]],
+            'payment' => 350,
+        ]));
+
+        $transaction = Transaction::with('items')->latest('id')->firstOrFail();
+
+        $response->assertRedirect(route('pos.receipt', $transaction));
+        $this->assertSame('350.00', $transaction->subtotal);
+        $this->assertSame('350.00', $transaction->total);
+        $this->assertSame('350.00', $transaction->items->first()->subtotal);
+        $this->assertSame(350.0, $transaction->items->first()->netLineTotal());
+        $this->get(route('pos.receipt', $transaction))
+            ->assertOk()
+            ->assertSee('agreed line price')
+            ->assertSee('350.00');
+    }
+
+    public function test_custom_line_total_must_be_a_whole_peso_amount(): void
+    {
+        $this->post(route('pos.checkout'), $this->checkoutPayload('cash', null, [
+            'items' => [[
+                'variant_id' => $this->variant->id,
+                'quantity' => 3,
+                'unit_price' => 116.67,
+                'line_total' => 350.01,
+                'discount' => 0,
+            ]],
+            'payment' => 350.01,
+        ]))->assertSessionHasErrors('items.0.line_total');
+
+        $this->assertDatabaseCount('transactions', 0);
     }
 
     public function test_checkout_records_the_sales_associate_separately_from_the_cashier(): void

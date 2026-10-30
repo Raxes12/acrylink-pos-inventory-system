@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Supplier;
 use App\Models\Unit;
+use App\Services\DocumentSequenceService;
 use App\Services\InventoryMonitoringService;
 use App\Support\CaseInsensitiveSearch;
 use App\Support\InputLimits;
@@ -109,7 +110,9 @@ class InventoryController extends Controller
 
     public function create()
     {
-        return view('inventory.form', $this->formOptions());
+        return view('inventory.form', array_merge($this->formOptions(), [
+            'suggestedVariantCode' => $this->suggestedVariantCode(),
+        ]));
     }
 
     public function searchProducts(Request $request)
@@ -178,12 +181,23 @@ class InventoryController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate($this->variantRules($request), $this->variantMessages());
+        $usesAutomaticCode = $this->usesAutomaticVariantCode($request);
+        $data = $request->validate($this->variantRules($request, null, $usesAutomaticCode), $this->variantMessages());
         $data['status'] = 'active';
         $data['image_path'] = $this->storeVariantImage($request);
         $variant = null;
 
-        DB::transaction(function () use ($data, &$variant) {
+        DB::transaction(function () use ($data, $usesAutomaticCode, &$variant) {
+            if ($usesAutomaticCode) {
+                $data['code'] = app(DocumentSequenceService::class)->next(
+                    'product-variants',
+                    'PRDV-',
+                    ProductVariant::class,
+                    'variant_code',
+                    3
+                );
+            }
+
             $product = $this->productForStore($data);
             $variant = $this->saveVariant(new ProductVariant, $product, $data);
             $this->saveInventoryStock($variant, 0, (int) $data['min_stock'], (int) $data['critical_stock']);
@@ -375,13 +389,18 @@ class InventoryController extends Controller
         });
     }
 
-    private function variantRules(Request $request, ?ProductVariant $variant = null): array
+    private function variantRules(Request $request, ?ProductVariant $variant = null, bool $usesAutomaticCode = false): array
     {
         $requiresNewProduct = blank($request->input('product_id'));
+        $codeRules = ['required', 'string', 'max:50'];
+
+        if (! $usesAutomaticCode) {
+            $codeRules[] = Rule::unique('product_variants', 'variant_code')->ignore($variant?->id);
+        }
 
         return [
             'product_id' => ['nullable', 'exists:products,id'],
-            'code' => ['required', 'string', 'max:50', Rule::unique('product_variants', 'variant_code')->ignore($variant?->id)],
+            'code' => $codeRules,
             'barcode' => ['nullable', 'string', 'max:80'],
             'part_number' => ['nullable', 'string', 'max:100'],
             'name' => [Rule::requiredIf($requiresNewProduct), 'nullable', 'string', 'max:200'],
@@ -402,6 +421,27 @@ class InventoryController extends Controller
                 ? ['required', 'in:active,inactive']
                 : ['exclude'],
         ];
+    }
+
+    private function suggestedVariantCode(): string
+    {
+        return app(DocumentSequenceService::class)->preview(
+            'product-variants',
+            'PRDV-',
+            ProductVariant::class,
+            'variant_code',
+            3
+        );
+    }
+
+    private function usesAutomaticVariantCode(Request $request): bool
+    {
+        $code = trim((string) $request->input('code'));
+        $suggestedCode = trim((string) $request->input('suggested_code'));
+
+        return $suggestedCode !== ''
+            && hash_equals($suggestedCode, $code)
+            && preg_match('/^PRDV-\d{3,}$/', $suggestedCode) === 1;
     }
 
     private function variantMessages(): array

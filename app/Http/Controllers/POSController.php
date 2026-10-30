@@ -228,6 +228,7 @@ class POSController extends Controller
             'items.*.variant_id' => 'required|exists:product_variants,id',
             'items.*.quantity' => 'required|integer|min:1|max:'.InputLimits::DATABASE_INTEGER_MAX,
             'items.*.unit_price' => 'required|numeric|min:0|max:'.InputLimits::DATABASE_MONEY_MAX,
+            'items.*.line_total' => 'nullable|integer|min:0|max:'.InputLimits::DATABASE_MONEY_MAX,
             'items.*.discount' => 'nullable|numeric|min:0|max:'.InputLimits::DATABASE_MONEY_MAX,
             'discount' => 'nullable|numeric|min:0|max:'.InputLimits::DATABASE_MONEY_MAX,
             'payment_method' => 'required|in:cash,gcash,check,credit_account',
@@ -271,6 +272,7 @@ class POSController extends Controller
             $discount = 0;
             $lineDiscounts = [];
             $lineUnitPrices = [];
+            $lineSubtotals = [];
             $hasLineDiscounts = collect($request->items)->contains(
                 fn (array $item) => array_key_exists('discount', $item)
             );
@@ -311,8 +313,15 @@ class POSController extends Controller
             }
 
             foreach ($request->items as $index => $item) {
-                $unitPrice = round((float) $item['unit_price'], 2);
-                $lineSubtotal = round((int) $item['quantity'] * $unitPrice, 2);
+                $quantity = (int) $item['quantity'];
+                $lineDiscount = $hasLineDiscounts ? round((float) ($item['discount'] ?? 0), 2) : 0;
+                $hasAgreedLineTotal = array_key_exists('line_total', $item) && $item['line_total'] !== null;
+                $lineSubtotal = $hasAgreedLineTotal
+                    ? round((float) $item['line_total'] + $lineDiscount, 2)
+                    : round($quantity * (float) $item['unit_price'], 2);
+                $unitPrice = $hasAgreedLineTotal
+                    ? round($lineSubtotal / $quantity, 2)
+                    : round((float) $item['unit_price'], 2);
                 $subtotal = round($subtotal + $lineSubtotal, 2);
 
                 if ($subtotal > InputLimits::DATABASE_MONEY_MAX) {
@@ -322,10 +331,9 @@ class POSController extends Controller
                 }
 
                 $lineUnitPrices[$index] = $unitPrice;
+                $lineSubtotals[$index] = $lineSubtotal;
 
                 if ($hasLineDiscounts) {
-                    $lineDiscount = round((float) ($item['discount'] ?? 0), 2);
-
                     if ($lineDiscount > $lineSubtotal) {
                         throw ValidationException::withMessages([
                             "items.{$index}.discount" => 'The item discount cannot exceed its line subtotal.',
@@ -343,7 +351,7 @@ class POSController extends Controller
                 // Compatibility for older clients and historical checkout tests.
                 $discount = min((float) ($request->discount ?? 0), $subtotal);
             }
-            $total = $subtotal - $discount;
+            $total = round($subtotal - $discount, 2);
             $paymentMethod = $request->payment_method;
             $customer = null;
             $creditTermDays = null;
@@ -516,7 +524,7 @@ class POSController extends Controller
                 $productName = $this->variantLineName($variant);
                 $unitPrice = $lineUnitPrices[$index];
                 $quantity = (int) $item['quantity'];
-                $lineSubtotal = round($quantity * $unitPrice, 2);
+                $lineSubtotal = $lineSubtotals[$index];
                 $lineDiscount = $hasLineDiscounts ? ($lineDiscounts[$index] ?? 0) : 0;
                 $quantityBefore = (int) $stock->quantity_on_hand;
                 $quantityAfter = $quantityBefore - $quantity;
@@ -530,7 +538,7 @@ class POSController extends Controller
                     'brand_snapshot' => $variant->brand?->name,
                     'size_snapshot' => $variant->size,
                     'color_snapshot' => $variant->color,
-                    'unit_snapshot' => $variant->unit?->code ?? 'pcs',
+                    'unit_snapshot' => $variant->unit?->code ?? 'PCS',
                     'product_name' => $productName,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
@@ -710,9 +718,12 @@ class POSController extends Controller
                         ->withInput();
                 }
 
-                $grossRefund = $requestedQuantity * (float) $txnItem->unit_price;
-                if ((float) $txnItem->discount > 0 && (int) $txnItem->quantity > 0) {
-                    $grossRefund -= $requestedQuantity * ((float) $txnItem->discount / (int) $txnItem->quantity);
+                $grossRefund = 0;
+                if ((int) $txnItem->quantity > 0) {
+                    $grossRefund = $requestedQuantity * ($txnItem->lineTotal() / (int) $txnItem->quantity);
+                    if ((float) $txnItem->discount > 0) {
+                        $grossRefund -= $requestedQuantity * ((float) $txnItem->discount / (int) $txnItem->quantity);
+                    }
                 }
                 $refundAmount += $grossRefund;
             }
@@ -1227,7 +1238,7 @@ class POSController extends Controller
             'brand' => $variant->brand?->name,
             'size' => $variant->size,
             'color' => $variant->color,
-            'unit' => $variant->unit?->code ?? 'pcs',
+            'unit' => $variant->unit?->code ?? 'PCS',
             'price' => (float) $variant->selling_price,
             'stock' => $stock,
             'stock_status' => $stockStatus,
@@ -1247,7 +1258,7 @@ class POSController extends Controller
             'barcode' => $variant->barcode,
             'part_number' => $variant->part_number,
             'brand' => $variant->brand?->name,
-            'unit' => $variant->unit?->code ?? 'pcs',
+            'unit' => $variant->unit?->code ?? 'PCS',
             'supplier' => $variant->supplier?->name,
             'size' => $variant->size,
             'color' => $variant->color,

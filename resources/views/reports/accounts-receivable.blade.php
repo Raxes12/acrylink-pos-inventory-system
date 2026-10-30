@@ -8,6 +8,7 @@
     <x-slot:actions>
         <a class="btn btn-secondary" href="{{ route('accounts-receivable.index') }}"><i class="bi bi-wallet2" aria-hidden="true"></i> Manage Accounts</a>
         <a href="{{ route('reports.accounts-receivable.export', request()->query()) }}" class="btn report-export report-export--csv"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Export CSV</a>
+        <a href="{{ route('reports.accounts-receivable.export.xlsx', request()->query()) }}" class="btn report-export report-export--excel"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Export Excel</a>
         <a href="{{ route('reports.accounts-receivable.export.pdf', request()->query()) }}" class="btn report-export report-export--pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Export PDF</a>
     </x-slot:actions>
 </x-page-header>

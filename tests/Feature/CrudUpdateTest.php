@@ -59,7 +59,7 @@ class CrudUpdateTest extends TestCase
             'stock' => 12,
             'min_stock' => 3,
             'critical_stock' => 1,
-            'unit' => 'pcs',
+            'unit' => 'PCS',
             'supplier_id' => $supplier->id,
             'status' => 'active',
         ])->assertRedirect(route('inventory.index'))
@@ -104,7 +104,7 @@ class CrudUpdateTest extends TestCase
             'stock' => '999999999999999999',
             'min_stock' => '999999999999999999',
             'critical_stock' => '999999999999999999',
-            'unit' => $variant->unit?->code ?? 'pcs',
+            'unit' => $variant->unit?->code ?? 'PCS',
             'status' => $variant->status,
         ])->assertSessionHasErrors(['price', 'cost', 'stock', 'min_stock', 'critical_stock']);
 
@@ -161,7 +161,7 @@ class CrudUpdateTest extends TestCase
             'stock' => 8,
             'min_stock' => 3,
             'critical_stock' => 1,
-            'unit' => 'pcs',
+            'unit' => 'PCS',
             'supplier_id' => $supplier->id,
             'status' => 'active',
         ])->assertRedirect(route('inventory.index'))
@@ -285,7 +285,7 @@ class CrudUpdateTest extends TestCase
             'stock' => 6,
             'min_stock' => 2,
             'critical_stock' => 1,
-            'unit' => 'pcs',
+            'unit' => 'PCS',
             'supplier_id' => $supplier->id,
             'status' => 'active',
         ])->assertRedirect(route('inventory.index'))
@@ -637,6 +637,11 @@ class CrudUpdateTest extends TestCase
         $this->assertStringContainsString('INVENTORY STOCK REPORT', $csv);
         $this->assertStringContainsString($variant->variant_code, $csv);
         $this->assertStringContainsString($variant->product->name, $csv);
+
+        $excelResponse = $this->get(route('reports.inventory.export.xlsx', $parameters))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        $this->assertStringStartsWith('PK', $excelResponse->getContent());
 
         $pdfResponse = $this->get(route('reports.inventory.export.pdf', $parameters))->assertOk();
         $this->assertStringStartsWith('application/pdf', (string) $pdfResponse->headers->get('content-type'));

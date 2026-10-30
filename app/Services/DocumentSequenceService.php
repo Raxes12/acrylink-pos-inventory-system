@@ -9,6 +9,27 @@ use LogicException;
 class DocumentSequenceService
 {
     /**
+     * Preview the next number without reserving it. The final number must still
+     * be obtained through next() inside the business transaction.
+     *
+     * @param  class-string<Model>  $modelClass
+     */
+    public function preview(
+        string $key,
+        string $prefix,
+        string $modelClass,
+        string $column,
+        int $padding = 4
+    ): string {
+        $current = (int) DB::table('document_sequences')
+            ->where('sequence_key', $key)
+            ->value('current_value');
+        $next = max($current, $this->existingMaximum($modelClass, $column, $prefix)) + 1;
+
+        return $prefix.str_pad((string) $next, $padding, '0', STR_PAD_LEFT);
+    }
+
+    /**
      * Reserve the next number while the caller's business transaction is open.
      *
      * @param  class-string<Model>  $modelClass

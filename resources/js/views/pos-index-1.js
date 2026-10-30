@@ -33,6 +33,11 @@ const PAYMENT_HELP = {
 };
 const fmt = n => '\u20b1' + parseFloat(n || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const money = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+const itemDiscount = item => Math.max(0, Number(item.discount || 0));
+const itemNetTotal = item => item.lineTotalOverride == null
+    ? money(Math.max(0, item.price * item.qty - itemDiscount(item)))
+    : money(Math.max(0, Number(item.lineTotalOverride)));
+const itemGrossSubtotal = item => money(itemNetTotal(item) + itemDiscount(item));
 const cartKey = variantId => String(variantId);
 const stockOf = variant => Math.max(0, parseInt(variant?.stock, 10) || 0);
 const variantCartQty = variantId => Object.values(cart).reduce((sum, item) => sum + (String(item.variant_id) === String(variantId) ? item.qty : 0), 0);
@@ -70,10 +75,10 @@ function renderVariantInfo(variant) {
     setText('variantInfoBrand', variant.brand);
     setText('variantInfoSize', variant.size);
     setText('variantInfoColor', variant.color);
-    setText('variantInfoUnit', variant.unit || 'pcs');
+    setText('variantInfoUnit', variant.unit || 'PCS');
     setText('variantInfoSupplier', variant.supplier);
     setText('variantInfoPrice', fmt(variant.price));
-    setText('variantInfoStock', `${stockOf(variant)} ${variant.unit || 'pcs'} available`);
+    setText('variantInfoStock', `${stockOf(variant)} ${variant.unit || 'PCS'} available`);
 
     const imageWrap = document.getElementById('variantInfoImageWrap');
     const image = document.getElementById('variantInfoImage');
@@ -288,6 +293,8 @@ function addToCart(variantId, qty = 1) {
     const key = cartKey(variant.id);
     if (cart[key]) {
         cart[key].qty += qty;
+        cart[key].lineTotalOverride = null;
+        cart[key].price = Number(cart[key].catalogPrice ?? variant.price);
     } else {
         cart[key] = {
             key,
@@ -296,10 +303,12 @@ function addToCart(variantId, qty = 1) {
             name: variant.product_name,
             details: variantTitle(variant),
             price: parseFloat(variant.price),
+            catalogPrice: parseFloat(variant.price),
             stock,
-            unit: variant.unit || 'pcs',
+            unit: variant.unit || 'PCS',
             qty,
             discount: 0,
+            lineTotalOverride: null,
         };
     }
 
@@ -336,6 +345,8 @@ function updateQty(key, qty) {
     }
 
     cart[key].qty = qty;
+    cart[key].lineTotalOverride = null;
+    cart[key].price = Number(cart[key].catalogPrice ?? VARIANTS[item.variant_id]?.price ?? item.price);
     cart[key].discount = Math.min(Number(cart[key].discount || 0), cart[key].price * qty);
     renderCart();
 }
@@ -346,8 +357,11 @@ function updateItemDiscount(key, value) {
 
     const parsed = value === '' ? 0 : Number(value);
     item.discount = Number.isFinite(parsed) && parsed >= 0
-        ? Math.min(parsed, item.price * item.qty)
+        ? Math.min(parsed, itemGrossSubtotal(item))
         : 0;
+    if (item.lineTotalOverride != null) {
+        item.price = money(itemGrossSubtotal(item) / item.qty);
+    }
     renderCart();
 }
 
@@ -356,8 +370,8 @@ function updateItemLineTotal(key, value) {
     if (!item) return;
 
     const lineTotal = Number(value);
-    if (value === '' || !Number.isFinite(lineTotal) || lineTotal < 0) {
-        window.vmcToast?.('Enter a valid line total.', 'warning');
+    if (value === '' || !Number.isFinite(lineTotal) || lineTotal < 0 || !Number.isInteger(lineTotal)) {
+        window.vmcToast?.('Enter a whole-peso line total, such as 350.', 'warning');
         renderCart();
         return;
     }
@@ -365,8 +379,8 @@ function updateItemLineTotal(key, value) {
     // The entered amount is the amount due for this line after its discount.
     // Store the matching per-unit sale price so the checkout request and receipt
     // use the agreed price without changing the product's catalogue price.
-    const discount = Math.max(0, Number(item.discount || 0));
-    item.price = money((lineTotal + discount) / item.qty);
+    item.lineTotalOverride = lineTotal;
+    item.price = money((lineTotal + itemDiscount(item)) / item.qty);
     renderCart();
 }
 
@@ -463,11 +477,11 @@ function renderCart() {
                 </div>
                 <label class="cart-discount-block">
                     <span>Discount</span>
-                    <span class="cart-discount-input"><span aria-hidden="true">₱</span><input type="number" inputmode="decimal" value="${Number(item.discount || 0).toFixed(2)}" min="0" max="${(item.price * item.qty).toFixed(2)}" step="0.01" data-cart-action="discount" data-cart-key="${esc(item.key)}" aria-label="Discount for ${esc(item.name)}"></span>
+                    <span class="cart-discount-input"><span aria-hidden="true">₱</span><input type="number" inputmode="decimal" value="${Number(item.discount || 0).toFixed(2)}" min="0" max="${itemGrossSubtotal(item).toFixed(2)}" step="0.01" data-cart-action="discount" data-cart-key="${esc(item.key)}" aria-label="Discount for ${esc(item.name)}"></span>
                 </label>
                 <label class="cart-total-block">
                     <span class="cart-total-label"><span>${Number(item.discount || 0) > 0 ? 'Line total after discount' : 'Line total'}</span><small>Editable</small></span>
-                    <span class="cart-line-total-input"><span aria-hidden="true">₱</span><input type="number" inputmode="decimal" value="${money(Math.max(0, item.price * item.qty - Number(item.discount || 0))).toFixed(2)}" min="0" max="99999999.99" step="0.01" data-cart-action="line-total" data-cart-key="${esc(item.key)}" aria-label="Line total for ${esc(item.name)}. Editing this updates its sale price." title="Edit the agreed sale amount"></span>
+                    <span class="cart-line-total-input"><span aria-hidden="true">₱</span><input type="number" inputmode="numeric" value="${itemNetTotal(item).toFixed(2)}" min="0" max="99999999" step="1" data-cart-action="line-total" data-cart-key="${esc(item.key)}" aria-label="Whole-peso line total for ${esc(item.name)}. Editing this updates its sale price." title="Enter the agreed whole-peso sale amount"></span>
                 </label>
             </div>
         </div>`).join('');
@@ -595,7 +609,7 @@ async function searchCustomers() {
 
 function checkoutValidation(items, total, rawPayment, details) {
     if (!items.length) return 'Add at least one product to begin checkout.';
-    if (items.some(item => !Number.isFinite(Number(item.discount || 0)) || Number(item.discount || 0) < 0 || Number(item.discount || 0) > item.price * item.qty)) return 'Enter a valid item discount.';
+    if (items.some(item => !Number.isFinite(Number(item.discount || 0)) || Number(item.discount || 0) < 0 || Number(item.discount || 0) > itemGrossSubtotal(item))) return 'Enter a valid item discount.';
     if (!PAYMENT_METHODS.includes(currentMethod)) return 'Select a payment method.';
     if (total <= 0) return 'The total must be greater than zero.';
     if (rawPayment === '' || !Number.isFinite(Number(rawPayment)) || Number(rawPayment) < 0) return 'Enter a valid payment amount.';
@@ -626,9 +640,9 @@ function recalculate() {
     if (isCheckingOut) return;
 
     const items = Object.values(cart);
-    const subtotal = money(items.reduce((s, i) => s + i.price * i.qty, 0));
-    const discount = money(items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), item.price * item.qty), 0));
-    const total = subtotal - discount;
+    const subtotal = money(items.reduce((sum, item) => sum + itemGrossSubtotal(item), 0));
+    const discount = money(items.reduce((sum, item) => sum + Math.min(itemDiscount(item), itemGrossSubtotal(item)), 0));
+    const total = money(subtotal - discount);
     const payEl = document.getElementById('payment');
     const details = paymentDetails();
     let rawPayment = payEl.value.trim();
@@ -709,6 +723,8 @@ function restorePendingCheckout() {
     cart = snapshot.cart;
     Object.values(cart).forEach(item => {
         item.discount = Number(item.discount || 0);
+        item.lineTotalOverride = item.lineTotalOverride == null ? null : Number(item.lineTotalOverride);
+        item.catalogPrice = Number(item.catalogPrice ?? VARIANTS[String(item.variant_id)]?.price ?? item.price);
         VARIANTS[String(item.variant_id)] = {
             ...VARIANTS[String(item.variant_id)],
             id: item.variant_id,
@@ -763,9 +779,9 @@ function submitCheckout() {
 
     const items = Object.values(cart);
     if (!items.length) return;
-    const subtotal = money(items.reduce((s, i) => s + i.price * i.qty, 0));
-    const discount = money(items.reduce((sum, item) => sum + Math.min(Number(item.discount || 0), item.price * item.qty), 0));
-    const total = subtotal - discount;
+    const subtotal = money(items.reduce((sum, item) => sum + itemGrossSubtotal(item), 0));
+    const discount = money(items.reduce((sum, item) => sum + Math.min(itemDiscount(item), itemGrossSubtotal(item)), 0));
+    const total = money(subtotal - discount);
     const rawPayment = document.getElementById('payment').value.trim();
     const payment = Number(rawPayment);
     const details = paymentDetails();
@@ -805,6 +821,7 @@ function submitCheckout() {
         fi.innerHTML += `<input type="hidden" name="items[${i}][variant_id]" value="${esc(item.variant_id)}">
                          <input type="hidden" name="items[${i}][quantity]" value="${esc(item.qty)}">
                          <input type="hidden" name="items[${i}][unit_price]" value="${esc(item.price)}">
+                         ${item.lineTotalOverride == null ? '' : `<input type="hidden" name="items[${i}][line_total]" value="${esc(item.lineTotalOverride)}">`}
                          <input type="hidden" name="items[${i}][discount]" value="${esc(Number(item.discount || 0).toFixed(2))}">`;
     });
 
@@ -887,10 +904,10 @@ function productCardHtml(variant) {
                 <span class="product-card-image-placeholder" aria-hidden="true">${esc(productInitials(productName))}</span>
                 ${image}
             </div>
-            <div class="product-stock product-stock--${stockState}" aria-label="${stockLabel}, ${stock} ${esc(variant.unit || 'pcs')} available">
+            <div class="product-stock product-stock--${stockState}" aria-label="${stockLabel}, ${stock} ${esc(variant.unit || 'PCS')} available">
                 <span class="product-stock-label">${stockLabel}</span>
                 <span aria-hidden="true">&middot;</span>
-                <span>${stock} ${esc(variant.unit || 'pcs')}</span>
+                <span>${stock} ${esc(variant.unit || 'PCS')}</span>
             </div>
             <button type="button"
                     class="product-info-btn"

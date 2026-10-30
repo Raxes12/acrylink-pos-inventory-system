@@ -86,7 +86,7 @@ class VariantInventorySchemaTest extends TestCase
         $this->assertSame('Adapter Fitting', $variant->product->name);
         $this->assertNull($variant->part_number);
         $this->assertNull($variant->brand);
-        $this->assertSame('pcs', $variant->unit?->code);
+        $this->assertSame('PCS', $variant->unit?->code);
         $this->assertSame("3G' HYDRAULIC POWER CORPORATION", $variant->supplier?->name);
         $this->assertSame('39.00', $variant->selling_price);
         $this->assertSame('26.00', $variant->cost_price);

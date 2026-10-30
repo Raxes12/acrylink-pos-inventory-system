@@ -20,7 +20,7 @@ class Unit extends Model
 
     public static function defaults(): array
     {
-        return ['BAG', 'CYL', 'DRUM', 'FEET', 'GALLON', 'KILOS', 'KIT', 'LITER', 'METER', 'PAIL', 'PIECE', 'PO', 'ROLL', 'SET'];
+        return ['BAG', 'CYL', 'DRUM', 'FEET', 'GALLON', 'KILOS', 'KIT', 'LITER', 'METER', 'PAIL', 'PCS', 'PO', 'ROLL', 'SET'];
     }
 
     public static function idForCode(?string $code): ?int

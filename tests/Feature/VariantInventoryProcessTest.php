@@ -102,6 +102,41 @@ class VariantInventoryProcessTest extends TestCase
         $this->assertSame('active', ProductVariant::where('variant_code', 'VP-ACTIVE-DEFAULT')->value('status'));
     }
 
+    public function test_add_variant_prefills_and_safely_reserves_the_next_prdv_code(): void
+    {
+        $this->actingAs($this->inventoryStaff());
+        $this->makeVariant('PRDV-055');
+
+        $this->get(route('inventory.create'))
+            ->assertOk()
+            ->assertSee('name="code" value="PRDV-056"', false)
+            ->assertSee('name="suggested_code" value="PRDV-056"', false)
+            ->assertSee('The next available code is filled automatically.');
+
+        $automaticPayload = $this->inventoryPayload([
+            'code' => 'PRDV-056',
+            'suggested_code' => 'PRDV-056',
+            'name' => 'Automatically Coded Variant',
+        ]);
+
+        $this->post(route('inventory.store'), $automaticPayload)
+            ->assertRedirect(route('inventory.index'))
+            ->assertSessionHasNoErrors();
+
+        // A second user can submit a stale preview without creating a duplicate.
+        $this->post(route('inventory.store'), array_merge($automaticPayload, [
+            'name' => 'Concurrent Automatically Coded Variant',
+        ]))->assertRedirect(route('inventory.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('product_variants', ['variant_code' => 'PRDV-056']);
+        $this->assertDatabaseHas('product_variants', ['variant_code' => 'PRDV-057']);
+        $this->assertDatabaseHas('document_sequences', [
+            'sequence_key' => 'product-variants',
+            'current_value' => 57,
+        ]);
+    }
+
     public function test_same_product_can_have_multiple_variant_records(): void
     {
         $this->actingAs($this->inventoryStaff());
@@ -195,7 +230,7 @@ class VariantInventoryProcessTest extends TestCase
             'brand_snapshot' => 'Snapshot Brand',
             'size_snapshot' => 'Compact',
             'color_snapshot' => 'Red',
-            'unit_snapshot' => 'pcs',
+            'unit_snapshot' => 'PCS',
             'quantity' => 2,
             'subtotal' => number_format((float) $variant->selling_price * 2, 2, '.', ''),
         ]);
@@ -426,7 +461,7 @@ class VariantInventoryProcessTest extends TestCase
         $variant = ProductVariant::create([
             'product_id' => $product->id,
             'brand_id' => $brand->id,
-            'unit_id' => Unit::where('code', 'pcs')->value('id') ?: Unit::firstOrFail()->id,
+            'unit_id' => Unit::where('code', 'PCS')->value('id') ?: Unit::firstOrFail()->id,
             'supplier_id' => Supplier::firstOrFail()->id,
             'variant_code' => $code,
             'barcode' => $variantOverrides['barcode'] ?? null,

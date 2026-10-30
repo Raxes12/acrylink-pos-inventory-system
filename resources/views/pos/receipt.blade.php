@@ -85,7 +85,11 @@
                     <td>
                         <div class="item-name">{{ $productName }}</div>
                         @if($variantDetails)<div class="item-code">{{ $variantDetails }}</div>@endif
+                        @if(abs($item->lineTotal() - ($item->quantity * (float) $item->unit_price)) > 0.001)
+                        <div class="item-calculation">{{ $item->quantity }} {{ $item->unit_snapshot ?? 'PCS' }} &middot; agreed line price</div>
+                        @else
                         <div class="item-calculation">{{ $item->quantity }} &times; {{ number_format($item->unit_price, 2) }}</div>
+                        @endif
                         @if((float) $item->discount > 0)<div class="item-code">Item discount: -{{ number_format($item->discount, 2) }}</div>@endif
                     </td>
                     <td class="money">{{ number_format($item->netLineTotal(), 2) }}</td>

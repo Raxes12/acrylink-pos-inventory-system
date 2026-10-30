@@ -72,7 +72,7 @@ class POSRefundValidationTest extends TestCase
             'brand_snapshot' => $this->variant->brand?->name,
             'size_snapshot' => $this->variant->size,
             'color_snapshot' => $this->variant->color,
-            'unit_snapshot' => $this->variant->unit?->code ?? 'pcs',
+            'unit_snapshot' => $this->variant->unit?->code ?? 'PCS',
             'quantity' => 5,
             'unit_price' => 100,
             'subtotal' => 500,
@@ -166,7 +166,7 @@ class POSRefundValidationTest extends TestCase
             ->assertSee('"discount":"50.00"', false)
             ->assertSee('"remaining":450', false)
             ->assertSee($this->transactionItem->product_name_snapshot)
-            ->assertSee($this->transactionItem->unit_snapshot ? 'Unit: '.$this->transactionItem->unit_snapshot : 'pcs');
+            ->assertSee($this->transactionItem->unit_snapshot ? 'Unit: '.$this->transactionItem->unit_snapshot : 'PCS');
     }
 
     public function test_sales_report_uses_net_values_after_a_partial_refund(): void

@@ -59,10 +59,10 @@
                          decoding="async">
                     @endif
                 </div>
-                <div class="product-stock product-stock--{{ $stockStatus }}" aria-label="{{ $stockLabel }}, {{ $stock }} {{ $variant['unit'] ?? 'pcs' }} available">
+                <div class="product-stock product-stock--{{ $stockStatus }}" aria-label="{{ $stockLabel }}, {{ $stock }} {{ $variant['unit'] ?? 'PCS' }} available">
                     <span class="product-stock-label">{{ $stockLabel }}</span>
                     <span aria-hidden="true">&middot;</span>
-                    <span>{{ $stock }} {{ $variant['unit'] ?? 'pcs' }}</span>
+                    <span>{{ $stock }} {{ $variant['unit'] ?? 'PCS' }}</span>
                 </div>
                 <button type="button"
                         class="product-info-btn"

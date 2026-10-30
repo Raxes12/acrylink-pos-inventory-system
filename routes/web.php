@@ -97,10 +97,13 @@ Route::middleware(['auth', 'device', 'session.anomaly'])->group(function () {
         Route::get('/reports/inventory', [ReportsController::class, 'inventory'])->name('reports.inventory');
         Route::get('/reports/accounts-receivable', [AccountsReceivableReportController::class, 'index'])->name('reports.accounts-receivable');
         Route::get('/reports/accounts-receivable/export/csv', [AccountsReceivableReportController::class, 'export'])->name('reports.accounts-receivable.export');
+        Route::get('/reports/accounts-receivable/export/excel', [AccountsReceivableReportController::class, 'exportExcel'])->name('reports.accounts-receivable.export.xlsx');
         Route::get('/reports/accounts-receivable/export/pdf', [AccountsReceivableReportController::class, 'exportPdf'])->name('reports.accounts-receivable.export.pdf');
+        Route::get('/reports/export/excel', [ReportsController::class, 'exportExcel'])->name('reports.export.xlsx');
         Route::get('/reports/export/pdf', [ReportsController::class, 'exportPdf'])->name('reports.export.pdf');
         Route::get('/reports/export', [ReportsController::class, 'export'])->name('reports.export');
         Route::get('/reports/inventory/export/csv', [ReportsController::class, 'exportInventory'])->name('reports.inventory.export');
+        Route::get('/reports/inventory/export/excel', [ReportsController::class, 'exportInventoryExcel'])->name('reports.inventory.export.xlsx');
         Route::get('/reports/inventory/export/pdf', [ReportsController::class, 'exportInventoryPdf'])->name('reports.inventory.export.pdf');
         Route::get('/audit/results', [AuditLogController::class, 'results'])->name('audit.results');
         Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');

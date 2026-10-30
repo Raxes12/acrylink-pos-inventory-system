@@ -12,6 +12,7 @@
         <div class="page-actions" data-live-sync="report-actions">
             <a href="{{ route('reports.index') }}" class="btn btn-secondary">Sales Reports</a>
             <a href="{{ $exportUrl }}" class="btn report-export report-export--csv"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Export CSV</a>
+            <a href="{{ $exportExcelUrl }}" class="btn report-export report-export--excel"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Export Excel</a>
             <a href="{{ $exportPdfUrl }}" class="btn report-export report-export--pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Export PDF</a>
         </div>
         

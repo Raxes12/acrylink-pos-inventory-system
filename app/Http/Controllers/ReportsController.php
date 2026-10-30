@@ -10,6 +10,7 @@ use App\Models\SecurityRule;
 use App\Models\Transaction;
 use App\Models\TransactionPayment;
 use App\Services\IntrusionDetectionService;
+use App\Services\ProfessionalSpreadsheetExportService;
 use App\Services\SystemSettingsService;
 use App\Support\CaseInsensitiveSearch;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -136,11 +137,16 @@ class ReportsController extends Controller
             'date_from' => $dateFrom,
             'date_to' => $dateTo,
         ], fn ($value) => filled($value)));
+        $exportExcelUrl = route('reports.export.xlsx', array_filter([
+            'range' => $range,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+        ], fn ($value) => filled($value)));
 
         return view('reports.index', compact(
             'transactions', 'totalSales', 'totalRefunds', 'totalDiscount', 'grossRevenue',
             'avgSale', 'byDate', 'byCashier', 'bySalesAssociate', 'topProducts', 'range',
-            'dateFrom', 'dateTo', 'reportLabel', 'exportUrl', 'exportPdfUrl',
+            'dateFrom', 'dateTo', 'reportLabel', 'exportUrl', 'exportPdfUrl', 'exportExcelUrl',
             'totalCollections', 'salesPeriodCollections', 'priorCreditCollections', 'totalCreditSales'
         ));
     }
@@ -179,6 +185,7 @@ class ReportsController extends Controller
         $exportParameters = array_filter($filters, fn ($value) => filled($value));
         $exportUrl = route('reports.inventory.export', $exportParameters);
         $exportPdfUrl = route('reports.inventory.export.pdf', $exportParameters);
+        $exportExcelUrl = route('reports.inventory.export.xlsx', $exportParameters);
 
         $blockedReason = $this->monitorReportView($request, [
             'range' => 'inventory', 'date_from' => null, 'date_to' => null,
@@ -213,7 +220,7 @@ class ReportsController extends Controller
             'category',
             'stockLevel',
             'exportUrl',
-            'exportPdfUrl'
+            'exportPdfUrl', 'exportExcelUrl'
         ));
     }
 
@@ -312,6 +319,59 @@ class ReportsController extends Controller
         );
     }
 
+    public function exportExcel(Request $request, ProfessionalSpreadsheetExportService $spreadsheet)
+    {
+        $filters = $this->reportFilters($request);
+        $transactions = $this->reportQuery($filters)->orderBy('date')->orderBy('time')->get();
+
+        if ($response = $this->authorizeReportExport($request, 'xlsx', $filters, $transactions)) {
+            return $response;
+        }
+
+        $records = $transactions->map(fn (Transaction $transaction) => [
+            'receipt_no' => $transaction->receipt_no,
+            'date' => $transaction->date,
+            'time' => $transaction->time,
+            'cashier' => $transaction->cashier?->name ?? 'Unknown',
+            'sales_associate' => $transaction->sales_associate,
+            'payment_method' => Transaction::paymentMethodLabel($transaction->payment_method),
+            'status' => Str::headline($transaction->status),
+            'subtotal' => (float) $transaction->subtotal,
+            'discount' => (float) $transaction->discount,
+            'total' => (float) $transaction->total,
+            'refunded' => $transaction->totalRefunded(),
+            'net_total' => $transaction->netTotal(),
+        ]);
+
+        return $spreadsheet->download(
+            'sales-report-'.Str::slug($this->reportLabel($filters)).'-'.now()->format('Ymd-His').'.xlsx',
+            app(SystemSettingsService::class)->get('business.name', 'Acry-Link'),
+            'Sales Report',
+            [
+                ['label' => 'Report period', 'value' => $this->reportLabel($filters)],
+                ['label' => 'Generated', 'value' => now()->format('F j, Y g:i A')],
+                ['label' => 'Transactions', 'value' => $transactions->count()],
+                ['label' => 'Net sales', 'value' => '₱'.number_format($transactions->sum(fn (Transaction $transaction) => $transaction->netTotal()), 2)],
+            ],
+            [
+                ['key' => 'receipt_no', 'label' => 'Receipt No.', 'type' => 'text', 'width' => 17],
+                ['key' => 'date', 'label' => 'Date', 'type' => 'date', 'width' => 14],
+                ['key' => 'time', 'label' => 'Time', 'type' => 'time', 'width' => 12],
+                ['key' => 'cashier', 'label' => 'Cashier', 'type' => 'text', 'width' => 20],
+                ['key' => 'sales_associate', 'label' => 'Sales Associate', 'type' => 'text', 'width' => 20],
+                ['key' => 'payment_method', 'label' => 'Payment Method', 'type' => 'text', 'width' => 18],
+                ['key' => 'status', 'label' => 'Status', 'type' => 'status', 'width' => 14],
+                ['key' => 'subtotal', 'label' => 'Original Subtotal', 'type' => 'currency', 'width' => 18],
+                ['key' => 'discount', 'label' => 'Original Discount', 'type' => 'currency', 'width' => 18],
+                ['key' => 'total', 'label' => 'Original Total', 'type' => 'currency', 'width' => 17],
+                ['key' => 'refunded', 'label' => 'Refunded', 'type' => 'currency', 'width' => 15],
+                ['key' => 'net_total', 'label' => 'Net Total', 'type' => 'currency', 'width' => 16],
+            ],
+            $records,
+            'Sales Report'
+        );
+    }
+
     public function exportInventory(Request $request)
     {
         $filters = $this->inventoryFilters($request);
@@ -374,6 +434,68 @@ class ReportsController extends Controller
             'filterLabel' => $this->inventoryFilterLabel($filters),
             'variants' => $variants,
         ])->setPaper('a4', 'landscape')->download('inventory-report-'.now()->format('Ymd-His').'.pdf');
+    }
+
+    public function exportInventoryExcel(Request $request, ProfessionalSpreadsheetExportService $spreadsheet)
+    {
+        $filters = $this->inventoryFilters($request);
+        $variants = $this->inventoryReportQuery($filters)->orderBy('variant_code')->get();
+
+        if ($response = $this->authorizeInventoryExport($request, $filters, $variants, 'xlsx')) {
+            return $response;
+        }
+
+        $records = $variants->map(function (ProductVariant $variant) {
+            $quantity = (int) ($variant->inventoryStock?->quantity_on_hand ?? 0);
+
+            return [
+                'product_name' => $variant->product?->name ?? 'Deleted product',
+                'variant_code' => $variant->variant_code,
+                'part_number' => $variant->part_number,
+                'brand' => $variant->brand?->name,
+                'category' => $variant->product?->productCategory?->name ?? $variant->product?->category,
+                'uom' => $variant->unit?->code,
+                'supplier' => $variant->supplier?->name,
+                'cost_price' => (float) $variant->cost_price,
+                'total_cost' => (float) $variant->cost_price * $quantity,
+                'selling_price' => (float) $variant->selling_price,
+                'on_hand' => $quantity,
+                'minimum' => (int) ($variant->inventoryStock?->minimum_stock ?? 0),
+                'critical' => (int) ($variant->inventoryStock?->critical_stock ?? 0),
+                'stock_status' => $this->inventoryStatus($variant),
+            ];
+        });
+
+        return $spreadsheet->download(
+            'inventory-report-'.now()->format('Ymd-His').'.xlsx',
+            app(SystemSettingsService::class)->get('business.name', 'Acry-Link'),
+            'Inventory Stock Report',
+            [
+                ['label' => 'Date as of', 'value' => now()->format('F j, Y')],
+                ['label' => 'Filters', 'value' => $this->inventoryFilterLabel($filters)],
+                ['label' => 'Variants', 'value' => $variants->count()],
+                ['label' => 'Total on hand', 'value' => $variants->sum(fn (ProductVariant $variant) => (int) ($variant->inventoryStock?->quantity_on_hand ?? 0))],
+                ['label' => 'Inventory value', 'value' => '₱'.number_format($variants->sum(fn (ProductVariant $variant) => (float) $variant->cost_price * (int) ($variant->inventoryStock?->quantity_on_hand ?? 0)), 2)],
+            ],
+            [
+                ['key' => 'product_name', 'label' => 'Product Name', 'type' => 'text', 'width' => 28],
+                ['key' => 'variant_code', 'label' => 'Variant Code', 'type' => 'text', 'width' => 18],
+                ['key' => 'part_number', 'label' => 'Part Number', 'type' => 'text', 'width' => 18],
+                ['key' => 'brand', 'label' => 'Brand', 'type' => 'text', 'width' => 17],
+                ['key' => 'category', 'label' => 'Category', 'type' => 'text', 'width' => 20],
+                ['key' => 'uom', 'label' => 'UOM', 'type' => 'text', 'width' => 10],
+                ['key' => 'supplier', 'label' => 'Supplier', 'type' => 'text', 'width' => 22],
+                ['key' => 'cost_price', 'label' => 'Cost Price', 'type' => 'currency', 'width' => 15],
+                ['key' => 'total_cost', 'label' => 'Total Cost', 'type' => 'currency', 'width' => 16],
+                ['key' => 'selling_price', 'label' => 'Selling Price', 'type' => 'currency', 'width' => 16],
+                ['key' => 'on_hand', 'label' => 'On Hand', 'type' => 'integer', 'width' => 12],
+                ['key' => 'minimum', 'label' => 'Minimum', 'type' => 'integer', 'width' => 12],
+                ['key' => 'critical', 'label' => 'Critical', 'type' => 'integer', 'width' => 12],
+                ['key' => 'stock_status', 'label' => 'Stock Status', 'type' => 'status', 'width' => 16],
+            ],
+            $records,
+            'Inventory'
+        );
     }
 
     private function reportFilters(Request $request): array
