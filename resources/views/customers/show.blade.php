@@ -51,8 +51,46 @@
     </section>
 
     <div class="customer-overview-grid section-spaced">
-        <section class="card customer-info-card"><div class="card-header"><span class="card-title">Contact Information</span></div><dl class="customer-detail-list"><dt>Phone</dt><dd>{{ $customer->phone ?: '—' }}</dd><dt>Email</dt><dd>{{ $customer->email ?: '—' }}</dd><dt>Address</dt><dd>{{ $customer->address ?: '—' }}</dd></dl></section>
-        <section class="card customer-info-card"><div class="card-header"><span class="card-title">Account Settings</span></div><dl class="customer-detail-list"><dt>Status</dt><dd><span class="tag {{ $customer->status === 'active' ? 'tag--success' : 'tag--muted' }}">{{ ucfirst($customer->status) }}</span></dd><dt>Credit Access</dt><dd><span class="tag {{ $customer->credit_enabled ? 'tag--success' : 'tag--muted' }}">{{ $customer->credit_enabled ? 'Enabled' : 'Disabled' }}</span></dd><dt>Default Term</dt><dd>{{ $customer->default_credit_term_days }} days</dd></dl><div class="customer-account-action"><form method="POST" action="{{ route('customers.status', $customer) }}" data-confirm data-confirm-title="Change customer status" data-confirm-message="{{ $customer->status === 'active' ? 'Deactivate' : 'Activate' }} {{ $customer->customer_name }}?" data-confirm-button="Confirm">@csrf @method('PATCH')<input type="hidden" name="status" value="{{ $customer->status === 'active' ? 'inactive' : 'active' }}"><button type="submit" class="btn btn-secondary btn-sm">{{ $customer->status === 'active' ? 'Deactivate Customer' : 'Activate Customer' }}</button></form></div></section>
+        <section class="card customer-info-card">
+            <div class="card-header">
+                <span class="card-title">Contact Information</span>
+            </div><dl class="customer-detail-list">
+                <dt>Phone</dt><dd>{{ $customer->phone ?: '—' }}</dd>
+                <dt>Email</dt><dd>{{ $customer->email ?: '—' }}</dd>
+                <dt>Address</dt><dd>{{ $customer->address ?: '—' }}</dd>
+            </dl>
+        </section>
+        <section class="card customer-info-card">
+            <div class="card-header">
+                <span class="card-title">Account Settings</span>
+            </div>
+            <dl class="customer-detail-list">
+                <dt>Status</dt>
+                <dd>
+                    <span class="tag {{ $customer->status === 'active' ? 'tag--success' : 'tag--muted' }}">
+                        {{ ucfirst($customer->status) }}
+                    </span>
+                </dd>
+                <dt>Credit Access</dt>
+                <dd>
+                    <span class="tag {{ $customer->credit_enabled ? 'tag--success' : 'tag--muted' }}">
+                        {{ $customer->credit_enabled ? 'Enabled' : 'Disabled' }}
+                    </span>
+                </dd>
+                <dt>Default Term</dt>
+                <dd>{{ $customer->default_credit_term_days }} days</dd>
+            </dl>
+            <div class="customer-account-action">
+                <form method="POST" action="{{ route('customers.status', $customer) }}" data-confirm data-confirm-title="Change customer status" data-confirm-message="{{ $customer->status === 'active' ? 'Deactivate' : 'Activate' }} {{ $customer->customer_name }}?" data-confirm-button="Confirm">
+                    @csrf
+                    @method('PATCH')
+                    <input type="hidden" name="status" value="{{ $customer->status === 'active' ? 'inactive' : 'active' }}">
+                    <button type="submit" class="btn btn-secondary btn-sm">
+                        {{ $customer->status === 'active' ? 'Deactivate Customer' : 'Activate Customer' }}
+                    </button>
+                </form>
+            </div>
+        </section>
     </div>
 
     <section class="card customer-history-card section-spaced">

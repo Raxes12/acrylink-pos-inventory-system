@@ -118,8 +118,10 @@ class CrudUpdateTest extends TestCase
 
         $this->post(route('inventory.adjust-stock', $variant), [
             'type' => 'stock_in',
+            'reason' => 'data_entry_correction',
             'quantity' => 2147483647,
             'remarks' => 'Boundary validation test.',
+            'adjustment_token' => '00000000-0000-4000-8000-000000000101',
         ])->assertSessionHasErrors('quantity');
 
         $this->assertSame(10, (int) $variant->fresh('inventoryStock')->inventoryStock->quantity_on_hand);
@@ -325,8 +327,10 @@ class CrudUpdateTest extends TestCase
 
         $this->post(route('inventory.adjust-stock', $variant), [
             'type' => 'stock_in',
+            'reason' => 'inventory_count_correction',
             'quantity' => 5,
             'remarks' => 'Test stock adjustment',
+            'adjustment_token' => '00000000-0000-4000-8000-000000000102',
         ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('inventory_stocks', [
@@ -409,8 +413,10 @@ class CrudUpdateTest extends TestCase
 
         $this->post(route('inventory.adjust-stock', $variant), [
             'type' => 'stock_in',
+            'reason' => 'inventory_count_correction',
             'quantity' => 3,
             'remarks' => 'IDS bulk inventory test.',
+            'adjustment_token' => '00000000-0000-4000-8000-000000000103',
         ])->assertSessionHasNoErrors();
 
         $event = IntrusionEvent::where('event_type', 'bulk_inventory_change')->latest('id')->firstOrFail();
@@ -460,14 +466,18 @@ class CrudUpdateTest extends TestCase
 
         $this->post(route('inventory.adjust-stock', $variant), [
             'type' => 'stock_in',
+            'reason' => 'inventory_count_correction',
             'quantity' => 1,
             'remarks' => 'IDS spike first movement.',
+            'adjustment_token' => '00000000-0000-4000-8000-000000000104',
         ])->assertSessionHasNoErrors();
 
         $this->post(route('inventory.adjust-stock', $variant), [
             'type' => 'stock_out',
+            'reason' => 'damaged',
             'quantity' => 1,
             'remarks' => 'IDS spike second movement.',
+            'adjustment_token' => '00000000-0000-4000-8000-000000000105',
         ])->assertSessionHasNoErrors();
 
         $event = IntrusionEvent::where('event_type', 'inventory_discrepancy_spike')->latest('id')->firstOrFail();
@@ -610,7 +620,7 @@ class CrudUpdateTest extends TestCase
         $this->assertStringContainsString('"REPORT PERIOD","'.today()->format('F j, Y').'"', $csv);
 
         $monthCsv = $this->get(route('reports.export', ['range' => 'month']))->assertOk()->streamedContent();
-        $this->assertStringContainsString('"REPORT PERIOD","October 2026"', $monthCsv);
+        $this->assertStringContainsString('"REPORT PERIOD","'.today()->format('F Y').'"', $monthCsv);
 
         $customCsv = $this->get(route('reports.export', [
             'range' => 'custom',

@@ -14,6 +14,7 @@ use App\Services\DocumentSequenceService;
 use App\Services\InventoryMonitoringService;
 use App\Support\CaseInsensitiveSearch;
 use App\Support\InputLimits;
+use App\Support\StockAdjustmentOptions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -275,9 +276,28 @@ class InventoryController extends Controller
     public function adjustStock(Request $request, ProductVariant $variant)
     {
         $data = $request->validate([
-            'type' => 'required|in:stock_in,stock_out,adjustment',
+            'type' => ['required', Rule::in(array_keys(StockAdjustmentOptions::TYPES))],
+            'reason' => [
+                'required',
+                'string',
+                Rule::in(array_keys(StockAdjustmentOptions::reasonsFor($request->input('type')))),
+            ],
             'quantity' => 'required|integer|min:1|max:'.InputLimits::DATABASE_INTEGER_MAX,
-            'remarks' => 'nullable|string|max:500',
+            'remarks' => [
+                Rule::requiredIf(fn () => StockAdjustmentOptions::remarksRequired($request->input('reason'))),
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+            'adjustment_token' => ['required', 'uuid'],
+            'variant_id' => ['nullable', 'integer'],
+        ], [
+            'type.in' => 'Choose a valid stock adjustment type.',
+            'reason.required' => 'Choose a reason for this stock adjustment.',
+            'reason.in' => 'The selected reason is not valid for this adjustment type.',
+            'quantity.integer' => 'Enter a whole-number quantity.',
+            'remarks.required' => 'Remarks are required for the selected adjustment reason.',
+            'adjustment_token.required' => 'The adjustment session expired. Please reopen the adjustment window.',
         ]);
 
         $variant->load('product');
@@ -285,29 +305,49 @@ class InventoryController extends Controller
             ? -1 * (int) $data['quantity']
             : (int) $data['quantity'];
 
-        $movement = app(InventoryMonitoringService::class)->recordMovement(
-            $variant,
-            $data['type'],
-            $requestedChange,
-            'manual_adjustment',
-            $variant->id,
-            $data['remarks'] ?: 'Manual stock adjustment from stock overview.'
-        );
+        $movement = DB::transaction(function () use ($data, $requestedChange, $variant) {
+            $movement = app(InventoryMonitoringService::class)->recordMovement(
+                variant: $variant,
+                type: $data['type'],
+                quantityChange: $requestedChange,
+                referenceType: 'manual_adjustment',
+                referenceId: $variant->id,
+                remarks: $data['remarks'] ?? null,
+                adjustmentReason: $data['reason'],
+                adjustmentToken: $data['adjustment_token'],
+                rejectNegative: true
+            );
 
-        AuditLog::record('PRODUCT', "Adjusted stock for variant: {$variant->product?->name} ({$variant->variant_code})", null, [
-            'affected_table' => 'inventory_stocks',
-            'affected_record_id' => $variant->inventoryStock?->id,
-            'old_values' => ['quantity_on_hand' => $movement->quantity_before],
-            'new_values' => [
-                'quantity_on_hand' => $movement->quantity_after,
-                'actual_change' => $movement->quantity_change,
-                'movement_type' => $data['type'],
-                'variant_id' => $variant->id,
-                'remarks' => $data['remarks'] ?? null,
-            ],
-        ]);
+            if (! $movement->wasRecentlyCreated) {
+                return $movement;
+            }
 
-        return back()->with('success', "Stock adjusted for \"{$variant->variant_code}\".");
+            $reasonLabel = StockAdjustmentOptions::reasonLabel($data['type'], $data['reason']);
+            $stockId = InventoryStock::where('variant_id', $variant->id)->value('id');
+
+            AuditLog::record('INVENTORY_ADJUSTMENT', "Adjusted stock for variant: {$variant->product?->name} ({$variant->variant_code})", null, [
+                'affected_table' => 'inventory_stocks',
+                'affected_record_id' => $stockId,
+                'old_values' => ['quantity_on_hand' => $movement->quantity_before],
+                'new_values' => [
+                    'quantity_on_hand' => $movement->quantity_after,
+                    'quantity_change' => $movement->quantity_change,
+                    'movement_type' => $data['type'],
+                    'adjustment_reason' => $data['reason'],
+                    'adjustment_reason_label' => $reasonLabel,
+                    'variant_id' => $variant->id,
+                    'remarks' => $data['remarks'] ?? null,
+                ],
+            ]);
+
+            return $movement;
+        });
+
+        if (! $movement->wasRecentlyCreated) {
+            return back()->with('success', 'This stock adjustment was already applied. No duplicate change was made.');
+        }
+
+        return back()->with('success', "Stock adjusted for \"{$variant->variant_code}\". New on-hand quantity: {$movement->quantity_after}.");
     }
 
     public function destroy(ProductVariant $variant)

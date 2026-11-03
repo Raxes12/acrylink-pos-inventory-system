@@ -64,13 +64,17 @@
                     <th>Before</th>
                     <th>After</th>
                     <th>User</th>
+                    <th>Adjustment Reason</th>
                     <th>Remarks</th>
                 </tr>
             </thead>
             <tbody>
             @forelse($movements as $movement)
             @php
-                $typeLabel = $types[$movement->movement_type] ?? str($movement->movement_type)->replace('_', ' ')->title();
+                $typeLabel = $movement->reference_type === 'manual_adjustment'
+                    ? \App\Support\StockAdjustmentOptions::typeLabel($movement->movement_type)
+                    : ($types[$movement->movement_type] ?? str($movement->movement_type)->replace('_', ' ')->title());
+                $reasonLabel = \App\Support\StockAdjustmentOptions::reasonLabel($movement->movement_type, $movement->adjustment_reason);
                 $qtyClass = $movement->quantity_change < 0 ? 'movement-negative' : 'movement-positive';
                 $variant = $movement->variant;
                 $product = $variant?->product;
@@ -96,10 +100,11 @@
                 <td data-label="Before" class="stock-muted">{{ $movement->quantity_before }}</td>
                 <td data-label="After" class="stock-onhand">{{ $movement->quantity_after }}</td>
                 <td data-label="User">{{ $movement->user?->name ?? 'System Administrator' }}</td>
+                <td data-label="Adjustment reason">@if($reasonLabel)<span class="movement-reason">{{ $reasonLabel }}</span>@else<span class="stock-muted">&mdash;</span>@endif</td>
                 <td data-label="Remarks" class="stock-muted movement-remarks">{{ $movement->remarks ?: '-' }}</td>
             </tr>
             @empty
-            <x-empty-state colspan="8" title="No stock movements found" message="Try clearing the date or movement filters." icon="transactions" />
+            <x-empty-state colspan="9" title="No stock movements found" message="Try clearing the date or movement filters." icon="transactions" />
             @endforelse
             </tbody>
         </table>

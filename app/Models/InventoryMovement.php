@@ -12,11 +12,13 @@ class InventoryMovement extends Model
         'variant_id',
         'user_id',
         'movement_type',
+        'adjustment_reason',
         'quantity_change',
         'quantity_before',
         'quantity_after',
         'reference_type',
         'reference_id',
+        'adjustment_token',
         'remarks',
         'created_at',
     ];

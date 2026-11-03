@@ -58,15 +58,12 @@ class ReportsController extends Controller
             ->map(fn ($group) => $group->sum(fn (Transaction $transaction) => $transaction->netTotal()))
             ->sortKeys();
 
-        // Group by cashier
-        $byCashier = $reportTransactions->groupBy(fn ($t) => $t->cashier?->name ?? 'Unknown')
-            ->map(fn ($g) => $g->sum(fn (Transaction $transaction) => $transaction->netTotal()))
-            ->sortDesc();
         $bySalesAssociate = $reportTransactions
             ->filter(fn (Transaction $transaction) => $transaction->status !== 'voided' && filled($transaction->sales_associate))
             ->groupBy(fn (Transaction $transaction) => $transaction->sales_associate)
             ->map(fn ($group) => $group->sum(fn (Transaction $transaction) => $transaction->netTotal()))
             ->sortDesc();
+        $byPaymentMethod = $this->paymentMethodBreakdown($reportTransactions);
 
         // Top products
         $topProducts = $reportTransactions
@@ -145,7 +142,7 @@ class ReportsController extends Controller
 
         return view('reports.index', compact(
             'transactions', 'totalSales', 'totalRefunds', 'totalDiscount', 'grossRevenue',
-            'avgSale', 'byDate', 'byCashier', 'bySalesAssociate', 'topProducts', 'range',
+            'avgSale', 'byDate', 'bySalesAssociate', 'byPaymentMethod', 'topProducts', 'range',
             'dateFrom', 'dateTo', 'reportLabel', 'exportUrl', 'exportPdfUrl', 'exportExcelUrl',
             'totalCollections', 'salesPeriodCollections', 'priorCreditCollections', 'totalCreditSales'
         ));
@@ -328,7 +325,7 @@ class ReportsController extends Controller
             return $response;
         }
 
-        $records = $transactions->map(fn (Transaction $transaction) => [
+        $recordFor = fn (Transaction $transaction) => [
             'receipt_no' => $transaction->receipt_no,
             'date' => $transaction->date,
             'time' => $transaction->time,
@@ -341,7 +338,60 @@ class ReportsController extends Controller
             'total' => (float) $transaction->total,
             'refunded' => $transaction->totalRefunded(),
             'net_total' => $transaction->netTotal(),
-        ]);
+        ];
+        $records = $transactions->map($recordFor);
+        $columns = [
+            ['key' => 'receipt_no', 'label' => 'Receipt No.', 'type' => 'text', 'width' => 17],
+            ['key' => 'date', 'label' => 'Date', 'type' => 'date', 'width' => 14],
+            ['key' => 'time', 'label' => 'Time', 'type' => 'time', 'width' => 12],
+            ['key' => 'cashier', 'label' => 'Cashier', 'type' => 'text', 'width' => 20],
+            ['key' => 'sales_associate', 'label' => 'Sales Associate', 'type' => 'text', 'width' => 20],
+            ['key' => 'payment_method', 'label' => 'Payment Method', 'type' => 'text', 'width' => 18],
+            ['key' => 'status', 'label' => 'Status', 'type' => 'status', 'width' => 14],
+            ['key' => 'subtotal', 'label' => 'Original Subtotal', 'type' => 'currency', 'width' => 18],
+            ['key' => 'discount', 'label' => 'Original Discount', 'type' => 'currency', 'width' => 18],
+            ['key' => 'total', 'label' => 'Original Total', 'type' => 'currency', 'width' => 17],
+            ['key' => 'refunded', 'label' => 'Refunded', 'type' => 'currency', 'width' => 15],
+            ['key' => 'net_total', 'label' => 'Net Total', 'type' => 'currency', 'width' => 16],
+        ];
+        $paymentBreakdown = $this->paymentMethodBreakdown($transactions);
+        $additionalSheets = [[
+            'title' => 'Sales by Payment Method',
+            'sheet_name' => 'Payment Summary',
+            'metadata' => [
+                ['label' => 'Report period', 'value' => $this->reportLabel($filters)],
+                ['label' => 'Payment methods', 'value' => $paymentBreakdown->count()],
+                ['label' => 'Total net sales', 'value' => 'â‚±'.number_format($paymentBreakdown->sum('net_sales'), 2)],
+            ],
+            'columns' => [
+                ['key' => 'label', 'label' => 'Payment Method', 'type' => 'text', 'width' => 24],
+                ['key' => 'transaction_count', 'label' => 'Transactions', 'type' => 'integer', 'width' => 16],
+                ['key' => 'gross_sales', 'label' => 'Original Sales', 'type' => 'currency', 'width' => 18],
+                ['key' => 'refunds', 'label' => 'Refunds', 'type' => 'currency', 'width' => 16],
+                ['key' => 'net_sales', 'label' => 'Net Sales', 'type' => 'currency', 'width' => 18],
+                ['key' => 'share', 'label' => 'Share (%)', 'type' => 'decimal', 'width' => 14],
+            ],
+            'records' => $paymentBreakdown->map(fn ($method) => (array) $method),
+        ]];
+
+        foreach ($paymentBreakdown as $method) {
+            $methodTransactions = $transactions
+                ->filter(fn (Transaction $transaction) => $transaction->status !== 'voided' && $transaction->payment_method === $method->code)
+                ->map($recordFor)
+                ->values();
+            $additionalSheets[] = [
+                'title' => $method->label.' Sales',
+                'sheet_name' => $method->label.' Sales',
+                'metadata' => [
+                    ['label' => 'Report period', 'value' => $this->reportLabel($filters)],
+                    ['label' => 'Payment method', 'value' => $method->label],
+                    ['label' => 'Transactions', 'value' => $method->transaction_count],
+                    ['label' => 'Net sales', 'value' => 'â‚±'.number_format($method->net_sales, 2)],
+                ],
+                'columns' => $columns,
+                'records' => $methodTransactions,
+            ];
+        }
 
         return $spreadsheet->download(
             'sales-report-'.Str::slug($this->reportLabel($filters)).'-'.now()->format('Ymd-His').'.xlsx',
@@ -353,22 +403,10 @@ class ReportsController extends Controller
                 ['label' => 'Transactions', 'value' => $transactions->count()],
                 ['label' => 'Net sales', 'value' => '₱'.number_format($transactions->sum(fn (Transaction $transaction) => $transaction->netTotal()), 2)],
             ],
-            [
-                ['key' => 'receipt_no', 'label' => 'Receipt No.', 'type' => 'text', 'width' => 17],
-                ['key' => 'date', 'label' => 'Date', 'type' => 'date', 'width' => 14],
-                ['key' => 'time', 'label' => 'Time', 'type' => 'time', 'width' => 12],
-                ['key' => 'cashier', 'label' => 'Cashier', 'type' => 'text', 'width' => 20],
-                ['key' => 'sales_associate', 'label' => 'Sales Associate', 'type' => 'text', 'width' => 20],
-                ['key' => 'payment_method', 'label' => 'Payment Method', 'type' => 'text', 'width' => 18],
-                ['key' => 'status', 'label' => 'Status', 'type' => 'status', 'width' => 14],
-                ['key' => 'subtotal', 'label' => 'Original Subtotal', 'type' => 'currency', 'width' => 18],
-                ['key' => 'discount', 'label' => 'Original Discount', 'type' => 'currency', 'width' => 18],
-                ['key' => 'total', 'label' => 'Original Total', 'type' => 'currency', 'width' => 17],
-                ['key' => 'refunded', 'label' => 'Refunded', 'type' => 'currency', 'width' => 15],
-                ['key' => 'net_total', 'label' => 'Net Total', 'type' => 'currency', 'width' => 16],
-            ],
+            $columns,
             $records,
-            'Sales Report'
+            'Sales Report',
+            $additionalSheets
         );
     }
 
@@ -699,6 +737,30 @@ class ReportsController extends Controller
         ]);
 
         return $blockedReason ? back()->withErrors(['export' => $blockedReason]) : null;
+    }
+
+    private function paymentMethodBreakdown(Collection $transactions): Collection
+    {
+        $validTransactions = $transactions->filter(fn (Transaction $transaction) => $transaction->status !== 'voided');
+        $totalNetSales = (float) $validTransactions->sum(fn (Transaction $transaction) => $transaction->netTotal());
+
+        return $validTransactions
+            ->groupBy(fn (Transaction $transaction) => $transaction->payment_method)
+            ->map(function (Collection $group, string $code) use ($totalNetSales) {
+                $netSales = (float) $group->sum(fn (Transaction $transaction) => $transaction->netTotal());
+
+                return (object) [
+                    'code' => $code,
+                    'label' => Transaction::paymentMethodLabel($code),
+                    'transaction_count' => $group->count(),
+                    'gross_sales' => (float) $group->sum('total'),
+                    'refunds' => (float) $group->sum(fn (Transaction $transaction) => $transaction->totalRefunded()),
+                    'net_sales' => $netSales,
+                    'share' => $totalNetSales > 0 ? round(($netSales / $totalNetSales) * 100, 2) : 0.0,
+                ];
+            })
+            ->sortByDesc('net_sales')
+            ->values();
     }
 
     private function reportQuery(array $filters)

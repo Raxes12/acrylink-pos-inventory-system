@@ -3,27 +3,45 @@
 namespace App\Services;
 
 use App\Models\AuditLog;
-use App\Models\InventoryStock;
-use App\Models\InventoryMovement;
 use App\Models\IntrusionEvent;
+use App\Models\InventoryMovement;
+use App\Models\InventoryStock;
 use App\Models\ProductVariant;
 use App\Models\SecurityRule;
 use App\Models\StockAlert;
 use App\Support\InputLimits;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class InventoryMonitoringService
 {
     private array $securityRules = [];
 
-    public function recordMovement(ProductVariant|int $variant, string $type, int $quantityChange, ?string $referenceType = null, ?int $referenceId = null, ?string $remarks = null): InventoryMovement
-    {
-        return DB::transaction(function () use ($variant, $type, $quantityChange, $referenceType, $referenceId, $remarks) {
+    public function recordMovement(
+        ProductVariant|int $variant,
+        string $type,
+        int $quantityChange,
+        ?string $referenceType = null,
+        ?int $referenceId = null,
+        ?string $remarks = null,
+        ?string $adjustmentReason = null,
+        ?string $adjustmentToken = null,
+        bool $rejectNegative = false
+    ): InventoryMovement {
+        return DB::transaction(function () use ($variant, $type, $quantityChange, $referenceType, $referenceId, $remarks, $adjustmentReason, $adjustmentToken, $rejectNegative) {
             $variant = $this->lockVariant($variant);
+
+            if ($adjustmentToken) {
+                $existingMovement = InventoryMovement::where('adjustment_token', $adjustmentToken)->first();
+
+                if ($existingMovement) {
+                    return $existingMovement;
+                }
+            }
+
             $stock = InventoryStock::where('variant_id', $variant->id)->lockForUpdate()->first();
 
-            if (!$stock) {
+            if (! $stock) {
                 $stock = InventoryStock::create([
                     'variant_id' => $variant->id,
                     'quantity_on_hand' => 0,
@@ -44,6 +62,12 @@ class InventoryMonitoringService
                 ]);
             }
 
+            if ($rejectNegative && $quantityBefore + $quantityChange < 0) {
+                throw ValidationException::withMessages([
+                    'quantity' => 'Insufficient stock. The adjustment quantity exceeds the available inventory.',
+                ]);
+            }
+
             $quantityAfter = max(0, $quantityBefore + $quantityChange);
             $actualChange = $quantityAfter - $quantityBefore;
 
@@ -53,11 +77,13 @@ class InventoryMonitoringService
                 'variant_id' => $variant->id,
                 'user_id' => auth()->id(),
                 'movement_type' => $type,
+                'adjustment_reason' => $adjustmentReason,
                 'quantity_change' => $actualChange,
                 'quantity_before' => $quantityBefore,
                 'quantity_after' => $quantityAfter,
                 'reference_type' => $referenceType,
                 'reference_id' => $referenceId,
+                'adjustment_token' => $adjustmentToken,
                 'remarks' => $remarks,
                 'created_at' => now(),
             ]);
@@ -72,17 +98,18 @@ class InventoryMonitoringService
 
     public function inspectMovementForAnomalies(InventoryMovement $movement): void
     {
-        if (!$movement->variant_id) {
+        if (! $movement->variant_id) {
             return;
         }
 
         if ($movement->movement_type === 'sale') {
             $this->detectBulkInventoryChange($movement);
+
             return;
         }
 
         $movement->loadMissing('variant.product', 'variant.inventoryStock', 'user');
-        if (!$movement->variant) {
+        if (! $movement->variant) {
             return;
         }
 
@@ -104,16 +131,19 @@ class InventoryMonitoringService
 
         if ($quantity <= 0) {
             $this->openAlert($variant, 'out_of_stock', "{$label} is out of stock.");
+
             return;
         }
 
         if ($quantity <= $critical) {
             $this->openAlert($variant, 'critical_stock', "{$label} is at critical stock level.");
+
             return;
         }
 
         if ($quantity <= $minimum) {
             $this->openAlert($variant, 'low_stock', "{$label} is below reorder level.");
+
             return;
         }
 
@@ -132,7 +162,7 @@ class InventoryMonitoringService
             'alert_status' => 'open',
         ]);
 
-        if (!$alert->exists) {
+        if (! $alert->exists) {
             $alert->created_at = now();
         }
 
@@ -157,7 +187,7 @@ class InventoryMonitoringService
         }
 
         $movement->loadMissing('variant.product', 'variant.inventoryStock', 'user');
-        if (!$movement->variant) {
+        if (! $movement->variant) {
             return;
         }
 
@@ -294,7 +324,7 @@ class InventoryMonitoringService
 
     private function securityRule(string $name): SecurityRule|false|null
     {
-        if (!array_key_exists($name, $this->securityRules)) {
+        if (! array_key_exists($name, $this->securityRules)) {
             $this->securityRules[$name] = app(IntrusionDetectionService::class)->ruleFor($name);
         }
 

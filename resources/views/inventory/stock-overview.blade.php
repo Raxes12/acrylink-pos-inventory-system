@@ -3,6 +3,8 @@
 @section('page-label', 'Inventory Management')
 
 @php
+    use App\Support\StockAdjustmentOptions;
+
     $stockAlertCounts = $stockAlertCounts ?? \App\Models\Product::stockAlertBreakdown();
     $stockLevels = [
         '' => 'All Stock Levels',
@@ -11,6 +13,14 @@
         'critical' => 'Critical ('.$stockAlertCounts['critical'].')',
         'low' => 'Low Stock ('.$stockAlertCounts['low'].')',
         'out' => 'Out of Stock ('.$stockAlertCounts['out'].')',
+    ];
+    $oldStockAdjustment = [
+        'variant_id' => old('variant_id'),
+        'type' => old('type'),
+        'reason' => old('reason'),
+        'quantity' => old('quantity'),
+        'remarks' => old('remarks'),
+        'adjustment_token' => old('adjustment_token'),
     ];
 @endphp
 
@@ -89,7 +99,7 @@
                 $quantity = (int) ($stock?->quantity_on_hand ?? 0);
                 $minimum = (int) ($stock?->minimum_stock ?? 0);
                 $critical = (int) ($stock?->critical_stock ?? 0);
-                $status = $quantity <= 0 ? 'Out of Stock' : ($quantity <= $critical ? 'Critical' : ($quantity <= $minimum ? 'Low Stock' : 'Normal'));
+                $status = StockAdjustmentOptions::stockStatus($quantity, $minimum, $critical);
                 $statusClass = $status === 'Normal' ? 'status-active' : ($status === 'Low Stock' ? 'status-low' : 'status-danger');
                 $stockLevel = $quantity <= 0 ? 'out' : ($quantity <= $critical ? 'critical' : ($quantity <= $minimum ? 'low' : 'normal'));
                 $variantLabel = trim(($product?->name ?? 'Product').' - '.$variant->variant_code);
@@ -126,8 +136,14 @@
                     <div class="table-actions">
                         @if(auth()->user()->canEdit())
                         <button type="button" class="btn btn-secondary btn-sm stock-adjust-btn" title="Adjust stock for {{ $variantLabel }}" aria-label="Adjust stock for {{ $variantLabel }}"
-                            data-product="{{ $variantLabel }}"
+                            data-variant-id="{{ $variant->id }}"
+                            data-product="{{ $product?->name ?? 'Deleted product' }}"
+                            data-variant="{{ $variant->variant_code }}"
+                            data-part-number="{{ $variant->part_number ?: 'Not specified' }}"
                             data-current="{{ $quantity }}"
+                            data-minimum="{{ $minimum }}"
+                            data-critical="{{ $critical }}"
+                            data-unit="{{ $variant->unit?->code ?: 'pcs' }}"
                             data-action="{{ route('inventory.adjust-stock', $variant) }}">
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/></svg>
                             <span>Adjust</span>
@@ -198,45 +214,98 @@
 </div>
 
 @if(auth()->user()->canEdit())
-<div class="stock-modal" id="stockAdjustModal" hidden role="dialog" aria-modal="true" aria-labelledby="stockAdjustTitle">
+<div class="stock-modal" id="stockAdjustModal" hidden role="dialog" aria-modal="true" aria-labelledby="stockAdjustTitle"
+     data-reasons='@json(StockAdjustmentOptions::REASONS)'
+     data-type-labels='@json(StockAdjustmentOptions::TYPES)'
+     data-old-adjustment='@json($oldStockAdjustment)'
+     data-errors='@json($errors->all())'
+     data-performed-by="{{ auth()->user()->name }}">
     <div class="stock-modal-backdrop" data-close-adjust></div>
     <form method="POST" class="stock-modal-panel" id="stockAdjustForm">
         @csrf
+        <input type="hidden" name="variant_id" value="">
+        <input type="hidden" name="adjustment_token" value="">
         <div class="stock-modal-head">
             <h2 id="stockAdjustTitle">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M2 14h4"/><path d="M10 8h4"/><path d="M18 16h4"/></svg>
-                Adjust Stock
+                Manual Stock Adjustment
             </h2>
             <button type="button" class="modal-close-btn" data-close-adjust aria-label="Close stock adjustment">&times;</button>
         </div>
         <div class="stock-modal-body">
-            <div class="stock-modal-product" id="stockAdjustProduct"></div>
-            <div class="stock-modal-current" id="stockAdjustCurrent"></div>
+            <div class="stock-adjust-errors" id="stockAdjustErrors" role="alert" hidden></div>
+            <section class="stock-adjust-product" aria-label="Selected product information">
+                <div><span>Product</span><strong id="stockAdjustProduct">&mdash;</strong></div>
+                <div><span>Variant / Part Number</span><strong id="stockAdjustVariant">&mdash;</strong></div>
+                <div><span>Current Stock</span><strong id="stockAdjustCurrent">&mdash;</strong></div>
+            </section>
             <label class="form-group">
-                <span>Type</span>
+                <span>Adjustment Type *</span>
                 <select name="type" required>
-                    <option value="stock_in">Stock In (Increase)</option>
-                    <option value="stock_out">Stock Out (Decrease)</option>
-                    <option value="adjustment">Other Increase</option>
+                    @foreach(StockAdjustmentOptions::TYPES as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
                 </select>
             </label>
             <label class="form-group">
-                <span>Quantity</span>
-                <input type="number" name="quantity" min="1" max="2147483647" step="1" required aria-describedby="stockAdjustPreview">
+                <span>Reason for Adjustment *</span>
+                <select name="reason" required>
+                    <option value="">&mdash; Select a reason &mdash;</option>
+                </select>
+            </label>
+            <label class="form-group">
+                <span>Quantity *</span>
+                <input type="number" name="quantity" min="1" max="2147483647" step="1" inputmode="numeric" required aria-describedby="stockAdjustPreview stockAdjustQuantityError">
+                <small class="field-error" id="stockAdjustQuantityError" hidden></small>
             </label>
             <div class="stock-adjust-preview" id="stockAdjustPreview" role="status" aria-live="polite">
-                Enter a quantity to preview the resulting stock.
+                <div class="stock-preview-title">Stock Adjustment Preview</div>
+                <dl>
+                    <div><dt>Current Stock</dt><dd data-preview-current>&mdash;</dd></div>
+                    <div><dt>Adjustment</dt><dd data-preview-change>&mdash;</dd></div>
+                    <div class="stock-preview-result"><dt>Resulting Stock</dt><dd data-preview-result>&mdash;</dd></div>
+                    <div><dt>Stock Status</dt><dd><span class="stock-preview-status" data-preview-status>Waiting for quantity</span></dd></div>
+                </dl>
+                <p class="stock-preview-warning" data-preview-warning hidden></p>
             </div>
             <label class="form-group">
-                <span>Remarks</span>
-                <textarea name="remarks" placeholder="Explain why this stock is changing..." required minlength="1"></textarea>
+                <span>Remarks <em data-remarks-requirement>(Optional)</em></span>
+                <textarea name="remarks" maxlength="1000" rows="3" placeholder="Provide additional details about this stock adjustment..."></textarea>
+                <small class="form-help">Required for Other and Lost / Missing adjustments.</small>
             </label>
         </div>
         <div class="stock-modal-actions">
             <button type="button" class="btn btn-secondary" data-close-adjust>Cancel</button>
-            <button type="submit" class="btn btn-primary">Apply Stock Change</button>
+            <button type="button" class="btn btn-primary" data-review-adjustment disabled>Review Adjustment</button>
         </div>
     </form>
+</div>
+
+<div class="stock-modal stock-confirm-modal" id="stockConfirmModal" hidden role="dialog" aria-modal="true" aria-labelledby="stockConfirmTitle">
+    <div class="stock-modal-backdrop" data-close-confirm></div>
+    <div class="stock-modal-panel stock-confirm-panel">
+        <div class="stock-modal-head">
+            <h2 id="stockConfirmTitle"><i class="bi bi-shield-check" aria-hidden="true"></i> Confirm Stock Adjustment</h2>
+            <button type="button" class="modal-close-btn" data-close-confirm aria-label="Close confirmation">&times;</button>
+        </div>
+        <div class="stock-modal-body">
+            <p class="stock-confirm-question">Are you sure you want to apply this stock adjustment?</p>
+            <dl class="stock-confirm-summary">
+                <div><dt>Product</dt><dd data-confirm-product>&mdash;</dd></div>
+                <div><dt>Variant</dt><dd data-confirm-variant>&mdash;</dd></div>
+                <div><dt>Adjustment Type</dt><dd data-confirm-type>&mdash;</dd></div>
+                <div><dt>Reason</dt><dd data-confirm-reason>&mdash;</dd></div>
+                <div><dt>Quantity</dt><dd data-confirm-quantity>&mdash;</dd></div>
+                <div><dt>Current Stock</dt><dd data-confirm-current>&mdash;</dd></div>
+                <div><dt>Resulting Stock</dt><dd data-confirm-result>&mdash;</dd></div>
+                <div><dt>Performed By</dt><dd>{{ auth()->user()->name }}</dd></div>
+            </dl>
+        </div>
+        <div class="stock-modal-actions">
+            <button type="button" class="btn btn-secondary" data-close-confirm>Cancel</button>
+            <button type="button" class="btn btn-primary" data-confirm-adjustment><span data-confirm-label>Confirm Adjustment</span></button>
+        </div>
+    </div>
 </div>
 @endif
 @endsection

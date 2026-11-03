@@ -6,7 +6,7 @@ let salesPeriodRequest = null;
 let salesPeriodVersion = 0;
 
 async function updateSalesPerformance(url) {
-    const current = document.querySelector('[data-sales-performance]');
+    const current = document.querySelector('[data-dashboard-performance-scope]');
     if (!current) return;
 
     salesPeriodRequest?.abort();
@@ -26,10 +26,12 @@ async function updateSalesPerformance(url) {
         }
 
         const page = new DOMParser().parseFromString(await response.text(), 'text/html');
-        const incoming = page.querySelector('[data-sales-performance]');
+        const incoming = page.querySelector('[data-dashboard-performance-scope]');
         if (!incoming || version !== salesPeriodVersion) return;
 
         current.replaceWith(incoming);
+        animateCounters(incoming);
+        renderDashboardCharts(incoming);
         const destination = new URL(response.url);
         history.replaceState(history.state, '', `${destination.pathname}${destination.search}`);
         incoming.querySelector('[aria-current="page"]')?.focus({ preventScroll: true });
@@ -53,7 +55,40 @@ scope.listen(document, 'click', event => {
     updateSalesPerformance(link.href);
 });
 
-document.querySelectorAll('[data-count]').forEach(el => {
+const showSalesPointTooltip = point => {
+    const chart = point.closest('[data-sales-performance]');
+    const tooltip = chart?.querySelector('[data-sales-chart-tooltip]');
+    if (!tooltip) return;
+    const amount = new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' })
+        .format(Number(point.dataset.chartValue) || 0);
+    tooltip.textContent = `${point.dataset.chartLabel}: ${amount}`;
+    tooltip.hidden = false;
+};
+
+const hideSalesPointTooltip = point => {
+    const tooltip = point.closest('[data-sales-performance]')?.querySelector('[data-sales-chart-tooltip]');
+    if (tooltip) tooltip.hidden = true;
+};
+
+scope.listen(document, 'focusin', event => {
+    const point = event.target.closest?.('.db-chart-point');
+    if (point) showSalesPointTooltip(point);
+});
+scope.listen(document, 'focusout', event => {
+    const point = event.target.closest?.('.db-chart-point');
+    if (point) hideSalesPointTooltip(point);
+});
+scope.listen(document, 'pointerover', event => {
+    const point = event.target.closest?.('.db-chart-point');
+    if (point) showSalesPointTooltip(point);
+});
+scope.listen(document, 'pointerout', event => {
+    const point = event.target.closest?.('.db-chart-point');
+    if (point) hideSalesPointTooltip(point);
+});
+
+function animateCounters(root = document) {
+root.querySelectorAll('[data-count]').forEach(el => {
     const target = Number(el.dataset.count || 0);
     const prefix = el.dataset.prefix || '';
     const format = value => prefix + Math.round(value).toLocaleString('en-PH');
@@ -72,7 +107,10 @@ document.querySelectorAll('[data-count]').forEach(el => {
         if (progress < 1) scope.requestAnimationFrame(step);
     };
     scope.requestAnimationFrame(step);
-});
+    });
+}
+
+animateCounters();
 
 scope.requestAnimationFrame(() => {
     document.querySelectorAll('.sales-fill[data-width]').forEach((bar, index) => {
@@ -99,9 +137,10 @@ scope.requestAnimationFrame(() => {
     });
 });
 
-const chartDataElement = document.getElementById('dashboardChartData');
+function renderDashboardCharts(root = document) {
+    const chartDataElement = root.querySelector('#dashboardChartData');
+    if (!chartDataElement) return;
 
-if (chartDataElement) {
     try {
         const chartData = JSON.parse(chartDataElement.textContent || '{}');
         const peso = new Intl.NumberFormat('en-PH', {
@@ -111,7 +150,7 @@ if (chartDataElement) {
         });
 
         const renderHorizontalChart = (containerId, rows, options) => {
-            const container = document.getElementById(containerId);
+            const container = root.querySelector(`#${containerId}`);
             if (!container || !Array.isArray(rows) || rows.length === 0) return;
 
             const maximum = Math.max(...rows.map(row => Number(row.value) || 0), 1);
@@ -119,7 +158,9 @@ if (chartDataElement) {
                 const value = Number(row.value) || 0;
                 const item = document.createElement('div');
                 const heading = document.createElement('div');
+                const labelGroup = document.createElement('div');
                 const label = document.createElement('strong');
+                const meta = document.createElement('small');
                 const amount = document.createElement('span');
                 const track = document.createElement('div');
                 const bar = document.createElement('span');
@@ -129,13 +170,20 @@ if (chartDataElement) {
                 item.setAttribute('aria-label', options.aria(row));
                 item.title = options.tooltip(row);
                 heading.className = 'horizontal-chart-heading';
+                labelGroup.className = 'horizontal-chart-label';
                 label.textContent = row.label;
+                if (options.meta) {
+                    meta.textContent = options.meta(row);
+                    labelGroup.append(label, meta);
+                } else {
+                    labelGroup.append(label);
+                }
                 amount.textContent = options.value(row);
                 track.className = 'horizontal-chart-track';
                 bar.className = 'horizontal-chart-bar';
                 bar.style.setProperty('--chart-width', `${Math.max(2, value / maximum * 100)}%`);
 
-                heading.append(label, amount);
+                heading.append(labelGroup, amount);
                 track.append(bar);
                 item.append(heading, track);
                 container.append(item);
@@ -144,27 +192,32 @@ if (chartDataElement) {
 
         renderHorizontalChart('topProductsChart', chartData.products, {
             value: row => `${Number(row.value).toLocaleString('en-PH')} sold`,
-            aria: row => `${row.label}: ${row.value} units sold, ${peso.format(row.revenue)}`,
-            tooltip: row => `${row.label}\nUnits sold: ${Number(row.value).toLocaleString('en-PH')}\nRevenue: ${peso.format(row.revenue)}`,
+            meta: row => row.identifier || 'Identifier unavailable',
+            aria: row => `${row.label}, ${row.identifier || 'identifier unavailable'}: ${row.value} net units sold, ${peso.format(row.revenue)} allocated net sales`,
+            tooltip: row => `${row.label}\n${row.identifier || 'Identifier unavailable'}\nNet units sold: ${Number(row.value).toLocaleString('en-PH')}\nAllocated net sales: ${peso.format(row.revenue)}`,
         });
 
         renderHorizontalChart('cashierChart', chartData.cashiers, {
             value: row => peso.format(row.value),
+            meta: row => `${Number(row.transactions).toLocaleString('en-PH')} transaction${Number(row.transactions) === 1 ? '' : 's'} processed`,
             aria: row => `${row.label}: ${peso.format(row.value)}, ${row.transactions} transactions`,
             tooltip: row => `${row.label}\nSales processed: ${peso.format(row.value)}\nTransactions: ${Number(row.transactions).toLocaleString('en-PH')}`,
         });
         renderHorizontalChart('salesAssociateChart', chartData.salesAssociates, {
             value: row => peso.format(row.value),
+            meta: row => `${Number(row.transactions).toLocaleString('en-PH')} assisted transaction${Number(row.transactions) === 1 ? '' : 's'}`,
             aria: row => `${row.label}: ${peso.format(row.value)} in assisted sales across ${row.transactions} transactions`,
             tooltip: row => `${row.label}\nSales assisted: ${peso.format(row.value)}\nTransactions: ${Number(row.transactions).toLocaleString('en-PH')}`,
         });
 
-        const categoryContainer = document.getElementById('categoryChart');
-        if (categoryContainer && Array.isArray(chartData.categories) && chartData.categories.length > 0) {
-            const colors = ['#1769aa', '#168c82', '#d58b18', '#c44c58', '#667085', '#8b6bb1'];
-            const total = chartData.categories.reduce((sum, row) => sum + (Number(row.value) || 0), 0);
+        const renderDoughnutChart = (containerId, rows, options) => {
+            const container = root.querySelector(`#${containerId}`);
+            if (!container || !Array.isArray(rows) || rows.length === 0) return;
+
+            const colors = ['#1769aa', '#168c82', '#d58b18', '#c44c58', '#667085', '#8b6bb1', '#0e9f6e', '#7c3aed'];
+            const total = rows.reduce((sum, row) => sum + (Number(row.value) || 0), 0);
             let position = 0;
-            const segments = chartData.categories.map((row, index) => {
+            const segments = rows.map((row, index) => {
                 const start = position;
                 position += total > 0 ? Number(row.value) / total * 100 : 0;
                 return `${colors[index % colors.length]} ${start}% ${position}%`;
@@ -176,43 +229,74 @@ if (chartDataElement) {
             const legend = document.createElement('div');
 
             chart.className = 'doughnut-chart';
-            chart.style.background = `conic-gradient(${segments.join(', ')})`;
+            chart.tabIndex = 0;
+            chart.setAttribute('role', 'img');
+            chart.setAttribute('aria-label', `${options.chartLabel}. Total ${peso.format(total)}.`);
+            chart.style.background = total > 0
+                ? `conic-gradient(${segments.join(', ')})`
+                : 'var(--soft)';
             center.className = 'doughnut-center';
-            centerLabel.textContent = 'Total sales';
+            centerLabel.textContent = options.centerLabel;
             centerValue.textContent = peso.format(total);
             center.append(centerLabel, centerValue);
             legend.className = 'doughnut-legend';
 
-            chartData.categories.forEach((row, index) => {
+            rows.forEach((row, index) => {
                 const share = total > 0 ? Number(row.value) / total * 100 : 0;
                 const item = document.createElement('div');
                 const key = document.createElement('span');
                 const swatch = document.createElement('i');
+                const copy = document.createElement('span');
                 const label = document.createElement('strong');
-                const value = document.createElement('span');
+                const meta = document.createElement('small');
+                const summary = document.createElement('span');
+                const percentage = document.createElement('strong');
+                const amount = document.createElement('small');
 
                 item.className = 'doughnut-legend-item';
                 item.tabIndex = 0;
-                item.title = `${row.label}\nSales: ${peso.format(row.value)}\nShare: ${share.toFixed(1)}%\nUnits: ${Number(row.units).toLocaleString('en-PH')}`;
+                item.title = options.tooltip(row, share);
                 item.setAttribute('aria-label', item.title.replaceAll('\n', ', '));
                 key.className = 'doughnut-legend-key';
                 swatch.style.backgroundColor = colors[index % colors.length];
                 label.textContent = row.label;
-                value.textContent = `${share.toFixed(1)}%`;
-                key.append(swatch, label);
-                item.append(key, value);
+                meta.textContent = options.meta(row);
+                copy.className = 'doughnut-legend-copy';
+                copy.append(label, meta);
+                percentage.textContent = `${share.toFixed(1)}%`;
+                amount.textContent = peso.format(row.value);
+                summary.className = 'doughnut-legend-summary';
+                summary.append(percentage, amount);
+                key.append(swatch, copy);
+                item.append(key, summary);
                 legend.append(item);
             });
 
             chart.append(center);
-            categoryContainer.append(chart, legend);
-        }
+            container.append(chart, legend);
+        };
+
+        renderDoughnutChart('categoryChart', chartData.categories, {
+            chartLabel: 'Category sales distribution',
+            centerLabel: 'Total sales',
+            meta: row => `${Number(row.units).toLocaleString('en-PH')} unit${Number(row.units) === 1 ? '' : 's'} sold`,
+            tooltip: (row, share) => `${row.label}\nSales: ${peso.format(row.value)}\nShare: ${share.toFixed(1)}%\nUnits: ${Number(row.units).toLocaleString('en-PH')}`,
+        });
+
+        renderDoughnutChart('paymentMethodChart', chartData.paymentMethods, {
+            chartLabel: 'Sales distribution by payment method',
+            centerLabel: 'Net sales',
+            meta: row => `${Number(row.transactions).toLocaleString('en-PH')} transaction${Number(row.transactions) === 1 ? '' : 's'}`,
+            tooltip: (row, share) => `${row.label}\nNet sales: ${peso.format(row.value)}\nShare: ${share.toFixed(1)}%\nTransactions: ${Number(row.transactions).toLocaleString('en-PH')}${row.isUnknown ? '\nLegacy payment method needs review' : ''}`,
+        });
 
         scope.requestAnimationFrame(() => document.documentElement.classList.add('charts-ready'));
     } catch (error) {
         console.error('Dashboard chart data could not be rendered.', error);
     }
 }
+
+renderDashboardCharts();
 
 scope.dispose(() => {
     salesPeriodRequest?.abort();

@@ -4,27 +4,27 @@
 
 @section('content')
 <div class="reports-page">
-<x-page-header title="Sales Reports" subtitle="Track revenue, collections, cashier performance, and transaction activity.">
+<x-page-header title="Sales Reports" subtitle="Review revenue, collections, sales associate performance, and transaction activity.">
     <x-slot:actions>
-        <a href="{{ $exportUrl }}" class="btn report-export report-export--csv"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Export CSV</a>
-        <a href="{{ $exportExcelUrl }}" class="btn report-export report-export--excel"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Export Excel</a>
-        <a href="{{ $exportPdfUrl }}" class="btn report-export report-export--pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Export PDF</a>
+        <a href="{{ $exportUrl }}" class="btn report-export report-export--csv" data-report-export="csv"><i class="bi bi-file-earmark-spreadsheet" aria-hidden="true"></i> Export CSV</a>
+        <a href="{{ $exportExcelUrl }}" class="btn report-export report-export--excel" data-report-export="excel"><i class="bi bi-file-earmark-excel" aria-hidden="true"></i> Export Excel</a>
+        <a href="{{ $exportPdfUrl }}" class="btn report-export report-export--pdf" data-report-export="pdf"><i class="bi bi-file-earmark-pdf" aria-hidden="true"></i> Export PDF</a>
     </x-slot:actions>
 </x-page-header>
 
 <section class="card report-period-panel" aria-labelledby="report-period-heading">
     <div class="report-period-top">
-        <div class="report-period-copy">
+        <div class="report-period-copy" data-report-period-copy>
             <span class="report-period-eyebrow" id="report-period-heading">Reporting period</span>
             <span class="report-period-value"><strong>{{ $reportLabel }}</strong>@if($range === 'custom')<span class="report-period-state">Custom</span>@endif</span>
         </div>
         <nav class="report-period-presets" aria-label="Quick reporting periods">
             @foreach(['today' => 'Today', 'week' => 'This Week', 'month' => 'This Month', 'year' => 'This Year', 'all' => 'All Time'] as $key => $label)
-                <a href="{{ route('reports.index', ['range' => $key]) }}" class="report-period-chip {{ $range === $key ? 'is-active' : '' }}" @if($range === $key) aria-current="page" @endif>{{ $label }}</a>
+                <a href="{{ route('reports.index', ['range' => $key]) }}" class="report-period-chip {{ $range === $key ? 'is-active' : '' }}" data-report-period-link @if($range === $key) aria-current="page" @endif>{{ $label }}</a>
             @endforeach
         </nav>
     </div>
-    <form id="salesReportDateFilter" method="GET" action="{{ route('reports.index') }}" class="report-date-filter">
+    <form id="salesReportDateFilter" method="GET" action="{{ route('reports.index') }}" class="report-date-filter" data-report-filter-form>
         <input type="hidden" name="range" value="custom">
         <div class="report-date-filter-intro">
             <span class="report-date-filter-icon" aria-hidden="true"><i class="bi bi-calendar-range"></i></span>
@@ -36,12 +36,18 @@
         </div>
         <div class="report-date-actions">
             <button class="btn btn-primary btn-sm" type="submit"><i class="bi bi-funnel" aria-hidden="true"></i> Apply dates</button>
-            @if($range === 'custom')<a href="{{ route('reports.index') }}" class="btn btn-secondary btn-sm">Reset</a>@endif
+            @if($range === 'custom')<a href="{{ route('reports.index') }}" class="btn btn-secondary btn-sm" data-report-period-link>Reset</a>@endif
         </div>
     </form>
 </section>
 
+<div data-report-results aria-live="polite">
 @if($errors->has('export'))<div class="alert alert-danger report-alert">{{ $errors->first('export') }}</div>@endif
+
+<div class="report-results-summary">
+    <div><span>Showing performance for</span><strong>{{ $reportLabel }}</strong></div>
+    <div class="report-results-summary-metrics"><span><strong>{{ number_format($transactions->total()) }}</strong> transactions</span><span><strong>&#8369;{{ number_format($totalSales, 2) }}</strong> net sales</span></div>
+</div>
 
 <section class="sales-kpi-grid" aria-label="Sales summary for {{ $reportLabel }}">
     <article class="card sales-kpi sales-kpi--hero"><div class="sales-kpi-top"><span class="sales-kpi-label">Net Sales</span><span class="sales-kpi-icon"><x-icon name="money" /></span></div><div class="sales-kpi-value">&#8369;{{ number_format($totalSales, 2) }}</div><div class="sales-kpi-note">After discounts and &#8369;{{ number_format($totalRefunds, 2) }} in refunds</div><svg class="sales-kpi-spark" viewBox="0 0 92 46" aria-hidden="true"><polyline points="2,40 16,29 29,34 43,17 57,24 72,9 90,16" /></svg></article>
@@ -62,6 +68,31 @@
     <article class="card sales-kpi sales-kpi--credit"><div class="sales-kpi-top"><span class="sales-kpi-label">Credit Sales</span><span class="sales-kpi-icon"><i class="bi bi-receipt" aria-hidden="true"></i></span></div><div class="sales-kpi-value">&#8369;{{ number_format($totalCreditSales, 2) }}</div><div class="sales-kpi-note">Net sales charged to customer accounts</div></article>
     <article class="card sales-kpi sales-kpi--discount"><div class="sales-kpi-top"><span class="sales-kpi-label">Total Discounts</span><span class="sales-kpi-icon"><x-icon name="percent" /></span></div><div class="sales-kpi-value">&#8369;{{ number_format($totalDiscount, 2) }}</div><div class="sales-kpi-note">Discounts remaining after refunds</div></article>
     <article class="card sales-kpi sales-kpi--average"><div class="sales-kpi-top"><span class="sales-kpi-label">Average Transaction</span><span class="sales-kpi-icon"><x-icon name="average" /></span></div><div class="sales-kpi-value">&#8369;{{ number_format($avgSale, 2) }}</div><div class="sales-kpi-note">Average net value per transaction</div></article>
+</section>
+
+<section class="card payment-method-summary" aria-labelledby="payment-method-summary-heading">
+    <div class="card-header payment-method-summary-header">
+        <div>
+            <span class="card-title" id="payment-method-summary-heading"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i> Sales by Payment Method</span>
+            <span class="report-card-caption">Net sales contribution for {{ strtolower($reportLabel) }}</span>
+        </div>
+        <span class="report-count">{{ $byPaymentMethod->count() }} method{{ $byPaymentMethod->count() === 1 ? '' : 's' }}</span>
+    </div>
+    <div class="payment-method-kpis">
+        @forelse($byPaymentMethod as $method)
+        <article class="payment-method-kpi">
+            <div class="payment-method-kpi-top">
+                <span class="payment-method-icon"><i class="bi bi-wallet2" aria-hidden="true"></i></span>
+                <span class="payment-method-share">{{ number_format($method->share, 1) }}%</span>
+            </div>
+            <span class="payment-method-name">{{ $method->label }}</span>
+            <strong>&#8369;{{ number_format($method->net_sales, 2) }}</strong>
+            <small>{{ number_format($method->transaction_count) }} transaction{{ $method->transaction_count === 1 ? '' : 's' }}@if($method->refunds > 0) &middot; &#8369;{{ number_format($method->refunds, 2) }} refunded @endif</small>
+        </article>
+        @empty
+        <div class="payment-method-empty"><i class="bi bi-credit-card" aria-hidden="true"></i><span>No payment-method sales were recorded for this period.</span></div>
+        @endforelse
+    </div>
 </section>
 
 <section class="report-analytics-grid">
@@ -91,15 +122,8 @@
             @else<div class="report-empty"><i class="bi bi-graph-up" aria-hidden="true"></i><strong>No sales data</strong><span>No completed sales were found for this period.</span></div>@endif
         </div>
     </article>
-    <article class="card report-analytics-card">
-        <div class="card-header"><div><span class="card-title">Sales by Cashier</span><span class="report-card-caption">Net sales contribution by team member</span></div><span class="report-count">{{ $byCashier->count() }} cashiers</span></div>
-        <div class="card-body report-bars">@php $maxCash = $byCashier->max() ?: 1; @endphp
-            @forelse($byCashier as $name => $amt)<div class="cashier-row"><span class="cashier-avatar" aria-hidden="true">{{ strtoupper(substr($name, 0, 1)) }}</span><div class="cashier-performance"><div class="cashier-heading"><strong title="{{ $name }}">{{ $name }}</strong><span>&#8369;{{ number_format($amt, 2) }}</span></div><div class="sales-track"><div class="sales-fill sales-fill--cashier" style="width:{{ max(2, ($amt / $maxCash) * 100) }}%"></div></div></div></div>
-            @empty<div class="report-empty"><i class="bi bi-people" aria-hidden="true"></i><strong>No cashier activity</strong><span>No cashier sales were found for this period.</span></div>@endforelse
-        </div>
-    </article>
-    <article class="card report-analytics-card">
-        <div class="card-header"><div><span class="card-title">Sales by Associate</span><span class="report-card-caption">Net sales attributed to the staff who assisted each customer</span></div><span class="report-count">{{ $bySalesAssociate->count() }} associates</span></div>
+    <article class="card report-analytics-card report-associate-card">
+        <div class="card-header"><div><span class="card-title"><i class="bi bi-person-badge" aria-hidden="true"></i> Sales by Associate</span><span class="report-card-caption">Net sales credited to the staff member who assisted the customer</span></div><span class="report-count">{{ $bySalesAssociate->count() }} associate{{ $bySalesAssociate->count() === 1 ? '' : 's' }}</span></div>
         <div class="card-body report-bars">@php $maxAssociate = $bySalesAssociate->max() ?: 1; @endphp
             @forelse($bySalesAssociate as $name => $amt)<div class="cashier-row"><span class="cashier-avatar" aria-hidden="true">{{ strtoupper(substr($name, 0, 1)) }}</span><div class="cashier-performance"><div class="cashier-heading"><strong title="{{ $name }}">{{ $name }}</strong><span>&#8369;{{ number_format($amt, 2) }}</span></div><div class="sales-track"><div class="sales-fill sales-fill--cashier" style="width:{{ max(2, ($amt / $maxAssociate) * 100) }}%"></div></div></div></div>
             @empty<div class="report-empty"><i class="bi bi-person-badge" aria-hidden="true"></i><strong>No sales associate activity</strong><span>Associate performance appears after a cashier records who assisted a sale.</span></div>@endforelse
@@ -138,8 +162,13 @@
 </section>
 </div>
 </div>
+</div>
 @endsection
 
 @push('styles')
 @vite('resources/css/views/reports-index-1.css')
+@endpush
+
+@push('scripts')
+@vite('resources/js/views/reports-index-1.js')
 @endpush

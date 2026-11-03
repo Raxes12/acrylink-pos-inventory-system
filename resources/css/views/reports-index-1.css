@@ -200,6 +200,18 @@
 .sales-kpi--average { border-color: color-mix(in srgb,var(--accent) 35%,var(--border)); background: linear-gradient(135deg,var(--card),color-mix(in srgb,var(--accent) 5%,var(--card))); }
 .sales-kpi-spark { position: absolute; right: 16px; bottom: 25px; width: 86px; opacity: .24; }
 .sales-kpi-spark polyline { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.payment-method-summary { margin-bottom: 18px; overflow: hidden; }
+.payment-method-summary-header > div { display: grid; gap: 3px; }
+.payment-method-summary-header .card-title { display: flex; align-items: center; gap: 8px; }
+.payment-method-kpis { display: grid; grid-template-columns: repeat(auto-fit,minmax(190px,1fr)); gap: 12px; padding: 16px; }
+.payment-method-kpi { min-width: 0; padding: 15px; border: 1px solid color-mix(in srgb,var(--border) 82%,transparent); border-radius: 12px; background: color-mix(in srgb,var(--soft) 62%,var(--card)); }
+.payment-method-kpi-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.payment-method-icon { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 9px; color: var(--accent); background: color-mix(in srgb,var(--accent) 10%,var(--card)); }
+.payment-method-share { color: var(--success); font-size: 11px; font-weight: 850; }
+.payment-method-name { display: block; overflow: hidden; color: var(--muted); font-size: 10.5px; font-weight: 850; letter-spacing: .07em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.payment-method-kpi strong { display: block; margin-top: 5px; color: var(--text); font-family: 'Space Grotesk',sans-serif; font-size: 22px; letter-spacing: -.025em; }
+.payment-method-kpi small { display: block; margin-top: 5px; color: var(--muted); font-size: 10.5px; line-height: 1.4; }
+.payment-method-empty { display: flex; grid-column: 1/-1; align-items: center; justify-content: center; gap: 9px; min-height: 90px; color: var(--muted); font-size: 12px; }
 .report-analytics-grid { display: grid; grid-template-columns: minmax(0,1.2fr) minmax(0,.8fr); gap: 14px; margin-bottom: 18px; }
 .report-analytics-card { overflow: hidden; }
 .report-analytics-card .card-header,.report-table-card .card-header { background: color-mix(in srgb,var(--soft) 70%,var(--card)); }
@@ -278,6 +290,7 @@
     .report-date-filter input { width: 100%; }
     .report-date-actions .btn { flex: 1; }
     .sales-kpi-grid { grid-template-columns: 1fr; }
+    .payment-method-kpis { grid-template-columns: 1fr; padding: 12px; }
     .sales-row { grid-template-columns: 52px minmax(0,1fr); }
     .sales-value { grid-column: 2; }
 }
@@ -569,4 +582,117 @@
 @media (max-width: 650px) {
     .inventory-report-filter { grid-template-columns: 1fr; }
     .sales-kpi { min-height: 0; }
+}
+
+/* Sales report period slicer and focused results experience */
+.reports-page .report-period-panel {
+    position: sticky;
+    z-index: 20;
+    top: 76px;
+    overflow: hidden;
+    background: color-mix(in srgb,var(--card) 96%,var(--soft));
+    box-shadow: 0 8px 24px rgba(15,38,72,.08);
+}
+.report-period-panel::after {
+    position: absolute;
+    right: 100%;
+    bottom: 0;
+    width: 42%;
+    height: 3px;
+    border-radius: 99px;
+    background: linear-gradient(90deg,var(--accent),var(--success));
+    content: '';
+    opacity: 0;
+}
+.report-period-panel.is-filtering::after {
+    opacity: 1;
+    animation: report-filter-progress 1.05s ease-in-out infinite;
+}
+[data-report-results] {
+    transition: opacity .18s ease, transform .18s ease;
+}
+[data-report-results][aria-busy="true"] {
+    opacity: .58;
+    pointer-events: none;
+    transform: translateY(2px);
+}
+.report-results-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    margin: 14px 0 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--report-border);
+    border-radius: 11px;
+    background: color-mix(in srgb,var(--accent) 3%,var(--card));
+}
+.report-results-summary > div:first-child {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 5px;
+    color: var(--muted);
+    font-size: 12px;
+}
+.report-results-summary > div:first-child strong {
+    color: var(--text);
+    font-size: 13px;
+}
+.report-results-summary-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.report-results-summary-metrics span {
+    padding: 6px 9px;
+    border: 1px solid color-mix(in srgb,var(--border) 78%,transparent);
+    border-radius: 8px;
+    color: var(--muted);
+    background: var(--card);
+    font-size: 11px;
+    white-space: nowrap;
+}
+.report-results-summary-metrics strong { color: var(--text); }
+.report-analytics-grid {
+    grid-template-columns: minmax(0,1.35fr) minmax(280px,.65fr);
+}
+.report-associate-card {
+    border-color: color-mix(in srgb,var(--accent) 18%,var(--report-border));
+    background: linear-gradient(150deg,color-mix(in srgb,var(--accent) 3%,var(--card)),var(--card) 48%);
+}
+.report-associate-card .card-title i { color: var(--accent); }
+.report-associate-card .report-count {
+    border: 1px solid color-mix(in srgb,var(--accent) 18%,var(--border));
+    color: var(--accent);
+    background: color-mix(in srgb,var(--accent) 7%,var(--card));
+}
+.report-associate-card .cashier-row {
+    padding: 10px;
+    border: 1px solid color-mix(in srgb,var(--border) 72%,transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb,var(--card) 92%,var(--soft));
+}
+
+@keyframes report-filter-progress {
+    from { right: 100%; }
+    to { right: -42%; }
+}
+
+@media (max-width: 1024px) {
+    .reports-page .report-period-panel { top: 70px; }
+    .report-analytics-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+    .reports-page .report-period-panel { position: relative; top: auto; }
+    .report-results-summary { align-items: stretch; flex-direction: column; gap: 9px; }
+    .report-results-summary-metrics { justify-content: stretch; }
+    .report-results-summary-metrics span { flex: 1 1 130px; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-report-results] { transition: none; }
+    .report-period-panel.is-filtering::after { animation-duration: 2.4s; }
 }

@@ -285,8 +285,10 @@ class VariantInventoryProcessTest extends TestCase
 
         $this->post(route('inventory.adjust-stock', $variant), [
             'type' => 'stock_out',
+            'reason' => 'inventory_count_correction',
             'quantity' => 3,
             'remarks' => 'Move to low stock threshold.',
+            'adjustment_token' => '00000000-0000-4000-8000-000000000201',
         ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('stock_alerts', [
@@ -314,8 +316,10 @@ class VariantInventoryProcessTest extends TestCase
 
         $this->post(route('inventory.adjust-stock', $variant), [
             'type' => 'stock_in',
+            'reason' => 'found_stock',
             'quantity' => 2,
             'remarks' => 'Replenish above minimum.',
+            'adjustment_token' => '00000000-0000-4000-8000-000000000202',
         ])->assertSessionHasNoErrors();
 
         $this->assertSame(0, StockAlert::where('variant_id', $variant->id)
@@ -336,8 +340,10 @@ class VariantInventoryProcessTest extends TestCase
 
         $this->post(route('inventory.adjust-stock', $variant), [
             'type' => 'stock_in',
+            'reason' => 'inventory_count_correction',
             'quantity' => 4,
             'remarks' => 'Before after movement test.',
+            'adjustment_token' => '00000000-0000-4000-8000-000000000203',
         ])->assertSessionHasNoErrors();
 
         $this->assertDatabaseHas('inventory_movements', [

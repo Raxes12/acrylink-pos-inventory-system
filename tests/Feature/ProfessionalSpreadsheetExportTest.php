@@ -93,4 +93,45 @@ class ProfessionalSpreadsheetExportTest extends TestCase
         $this->assertStringStartsWith('PK', $response->getContent());
         $this->assertGreaterThan(1000, strlen($response->getContent()));
     }
+
+    public function test_it_generates_and_formats_multiple_named_sheets(): void
+    {
+        $response = app(ProfessionalSpreadsheetExportService::class)->download(
+            'multi-sheet.xlsx',
+            'VMC Auto Parts & Accessories',
+            'Sales Report',
+            [['label' => 'Period', 'value' => 'November 2026']],
+            [['key' => 'receipt', 'label' => 'Receipt', 'type' => 'text']],
+            [['receipt' => 'RCP-0001']],
+            'Sales Report',
+            [[
+                'title' => 'Sales by Payment Method',
+                'sheet_name' => 'Payment Summary',
+                'metadata' => [['label' => 'Methods', 'value' => 1]],
+                'columns' => [
+                    ['key' => 'method', 'label' => 'Payment Method', 'type' => 'text'],
+                    ['key' => 'total', 'label' => 'Net Sales', 'type' => 'currency'],
+                ],
+                'records' => [['method' => 'Cash', 'total' => 500]],
+            ]]
+        );
+
+        $temporaryFile = tempnam(sys_get_temp_dir(), 'acrylink-xlsx-');
+        file_put_contents($temporaryFile, $response->getContent());
+        $zip = new ZipArchive;
+
+        try {
+            $this->assertTrue($zip->open($temporaryFile) === true);
+            $workbook = $zip->getFromName('xl/workbook.xml');
+            $secondSheet = $zip->getFromName('xl/worksheets/sheet2.xml');
+
+            $this->assertStringContainsString('name="Sales Report"', $workbook);
+            $this->assertStringContainsString('name="Payment Summary"', $workbook);
+            $this->assertStringContainsString('<pane', $secondSheet);
+            $this->assertStringContainsString('<autoFilter', $secondSheet);
+        } finally {
+            $zip->close();
+            @unlink($temporaryFile);
+        }
+    }
 }

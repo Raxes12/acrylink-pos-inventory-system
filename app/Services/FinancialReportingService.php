@@ -3,10 +3,21 @@
 namespace App\Services;
 
 use App\Models\TransactionPayment;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 class FinancialReportingService
 {
+    public function collectionsBetween(CarbonInterface $from, CarbonInterface $to): float
+    {
+        return round((float) TransactionPayment::query()
+            ->whereBetween('paid_at', [
+                $from->copy()->startOfDay(),
+                $to->copy()->endOfDay(),
+            ])
+            ->sum('amount'), 2);
+    }
+
     /** @return array{today_net_sales: float, today_collections: float, today_credit_sales: float, total_accounts_receivable: float, overdue_receivables: float} */
     public function todayMetrics(): array
     {

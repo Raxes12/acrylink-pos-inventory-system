@@ -20,6 +20,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Tests\TestCase;
+use ZipArchive;
 
 class FinancialReportingTest extends TestCase
 {
@@ -150,6 +151,45 @@ class FinancialReportingTest extends TestCase
             ->assertOk()->assertSee('RPT-AR-31-60')->assertDontSee('RPT-AR-1-30');
     }
 
+    public function test_sales_report_breaks_down_payment_methods_and_exports_each_method_to_its_own_sheet(): void
+    {
+        $this->transaction('RPT-CASH', 100, today());
+        $gcash = $this->transaction('RPT-GCASH', 250, today());
+        $gcash->update(['payment_method' => 'gcash']);
+
+        $this->get(route('reports.index', ['range' => 'today']))
+            ->assertOk()
+            ->assertSee('Sales by Payment Method')
+            ->assertSee('Cash')
+            ->assertSee('GCash')
+            ->assertSee('100.00')
+            ->assertSee('250.00')
+            ->assertViewHas('byPaymentMethod', function ($methods) {
+                return $methods->count() === 2
+                    && $methods->sum('net_sales') === 350.0
+                    && $methods->pluck('label')->sort()->values()->all() === ['Cash', 'GCash'];
+            });
+
+        SecurityRule::whereIn('rule_name', ['bulk_data_export', 'large_report_date_range'])
+            ->update(['is_active' => false]);
+        $response = $this->get(route('reports.export.xlsx', ['range' => 'today']))->assertOk();
+        $temporaryFile = tempnam(sys_get_temp_dir(), 'acrylink-sales-xlsx-');
+        file_put_contents($temporaryFile, $response->getContent());
+        $zip = new ZipArchive;
+
+        try {
+            $this->assertTrue($zip->open($temporaryFile) === true);
+            $workbook = $zip->getFromName('xl/workbook.xml');
+            $this->assertStringContainsString('name="Sales Report"', $workbook);
+            $this->assertStringContainsString('name="Payment Summary"', $workbook);
+            $this->assertStringContainsString('name="Cash Sales"', $workbook);
+            $this->assertStringContainsString('name="GCash Sales"', $workbook);
+        } finally {
+            $zip->close();
+            @unlink($temporaryFile);
+        }
+    }
+
     public function test_sales_report_groups_net_sales_by_sales_associate(): void
     {
         $transaction = $this->transaction('RPT-ASSOCIATE', 1250, today());
@@ -159,6 +199,10 @@ class FinancialReportingTest extends TestCase
             ->assertOk()
             ->assertViewHas('bySalesAssociate', fn ($associates) => (float) $associates->get('Maria Santos') === 1250.0)
             ->assertSee('Sales by Associate')
+            ->assertDontSee('Sales by Cashier')
+            ->assertSee('data-report-results', false)
+            ->assertSee('data-report-period-link', false)
+            ->assertSee('data-report-filter-form', false)
             ->assertSee('Maria Santos')
             ->assertSee('Associate: Maria Santos');
     }
