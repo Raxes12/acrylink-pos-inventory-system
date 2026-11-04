@@ -1320,11 +1320,16 @@
 .db-team-performance .horizontal-chart-label small { font-size: 8.5px; }
 .db-team-performance .horizontal-chart-track { height: 7px; margin-left: 37px; border-radius: 99px; }
 .db-team-performance .horizontal-chart-bar { border-radius: 99px; background: linear-gradient(90deg,var(--accent),color-mix(in srgb,var(--accent) 72%,var(--accent2))); }
-.db-distribution-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-top: 16px; }
-.db-distribution-panel { min-width: 0; }
-.db-distribution-panel .card-header > div { display: grid; min-width: 0; gap: 3px; }
-.db-distribution-panel .db-period-label { flex: 0 0 auto; }
-.db-distribution-body { display: flex; min-height: 300px; align-items: center; }
+.db-distribution-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); align-items: stretch; gap: 16px; margin-top: 16px; }
+.db-distribution-panel { display: flex; min-width: 0; height: 100%; flex-direction: column; }
+.db-distribution-panel .card-header { display: grid; min-height: 86px; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 14px; }
+.db-distribution-panel .card-header > div { display: grid; min-width: 0; align-content: center; gap: 4px; }
+.db-distribution-panel .card-title { min-height: 20px; align-items: center; }
+.db-distribution-panel .card-title > .app-icon,
+.db-distribution-panel .card-title > i { display: inline-grid; width: 18px; height: 18px; flex: 0 0 18px; place-items: center; line-height: 1; }
+.db-distribution-panel .db-period-label { align-self: center; justify-self: end; white-space: nowrap; }
+.db-distribution-body { display: flex; min-height: 300px; flex: 1; align-items: center; justify-content: center; }
+.db-distribution-body > .empty-state { width: 100%; min-height: 268px; align-content: center; padding: 24px; }
 .db-distribution-body .doughnut-chart-layout { width: 100%; grid-template-columns: minmax(155px,185px) minmax(0,1fr); gap: 18px; }
 .db-distribution-body .doughnut-chart { width: min(100%,185px); justify-self: center; box-shadow: 0 0 0 1px color-mix(in srgb,var(--border) 30%,transparent); }
 .db-distribution-body .doughnut-chart::after { box-shadow: 0 0 0 1px color-mix(in srgb,var(--border) 65%,transparent); }
@@ -1392,8 +1397,10 @@
     .db-team-performance .horizontal-chart-heading { grid-template-columns: 26px minmax(0,1fr); }
     .db-team-performance .horizontal-chart-heading > span { grid-column: 2; justify-self: start; }
     .db-team-performance .horizontal-chart-track { margin-left: 35px; }
-    .db-distribution-panel .card-header { align-items: flex-start; flex-direction: column; gap: 7px; }
+    .db-distribution-panel .card-header { min-height: 0; grid-template-columns: 1fr; align-items: start; gap: 7px; }
+    .db-distribution-panel .db-period-label { justify-self: start; }
     .db-distribution-body { min-height: 0; }
+    .db-distribution-body > .empty-state { min-height: 230px; }
     .db-distribution-body .doughnut-chart-layout { grid-template-columns: 1fr; justify-items: center; }
     .db-distribution-body .doughnut-legend { width: 100%; }
     .db-trend-chart { padding-inline: 8px; }
