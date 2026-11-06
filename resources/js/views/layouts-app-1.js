@@ -184,6 +184,12 @@
     let pendingConfirmSubmitter = null;
     let lastConfirmTrigger = null;
 
+    const isDeleteForm = form => form instanceof HTMLFormElement
+        && [...form.querySelectorAll('input[name="_method"]')]
+            .some(input => String(input.value).toUpperCase() === 'DELETE');
+    const needsConfirmation = form => form instanceof HTMLFormElement
+        && (form.hasAttribute('data-confirm') || isDeleteForm(form));
+
     const closeConfirmModal = () => {
         if (!confirmModal) return;
         confirmModal.hidden = true;
@@ -195,15 +201,18 @@
 
     const openConfirmModal = (form, submitter) => {
         if (!confirmModal || !confirmTitle || !confirmMessage || !confirmSubmit) return false;
+        const deleting = isDeleteForm(form);
         pendingConfirmForm = form;
         pendingConfirmSubmitter = submitter || null;
         lastConfirmTrigger = submitter || document.activeElement;
-        confirmTitle.textContent = form.dataset.confirmTitle || 'Are you sure?';
-        confirmMessage.textContent = form.dataset.confirmMessage || 'Are you sure you want to continue?';
-        confirmSubmit.textContent = form.dataset.confirmButton || 'Confirm';
+        confirmTitle.textContent = form.dataset.confirmTitle || (deleting ? 'Delete this item?' : 'Confirm this action');
+        confirmMessage.textContent = form.dataset.confirmMessage || (deleting
+            ? 'This item will be permanently deleted. This action cannot be undone.'
+            : 'Please confirm that you want to continue.');
+        confirmSubmit.textContent = form.dataset.confirmButton || (deleting ? 'Delete' : 'Confirm');
         confirmSubmit.className = `btn ${form.dataset.confirmButtonClass || 'btn-danger'}`;
         confirmModal.hidden = false;
-        setTimeout(() => confirmSubmit?.focus(), 20);
+        setTimeout(() => confirmCancel?.focus(), 20);
         return true;
     };
 
@@ -359,7 +368,7 @@
 
         const submitter = event.target.closest('button[type="submit"], input[type="submit"]');
         const form = submitter?.form;
-        if (!form?.dataset.confirm || form.dataset.confirmed === 'true') return;
+        if (!needsConfirmation(form) || form.dataset.confirmed === 'true') return;
         event.preventDefault();
         event.stopImmediatePropagation();
         openConfirmModal(form, submitter);
@@ -368,7 +377,7 @@
     document.addEventListener('submit', event => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement)) return;
-        if (!form.dataset.confirm || form.dataset.confirmed === 'true') {
+        if (!needsConfirmation(form) || form.dataset.confirmed === 'true') {
             delete form.dataset.confirmed;
             return;
         }

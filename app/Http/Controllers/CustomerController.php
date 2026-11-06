@@ -49,19 +49,29 @@ class CustomerController extends Controller
         return view('customers.form');
     }
 
-    public function show(Customer $customer, AccountsReceivableService $receivables, CustomerCreditService $credit)
+    public function show(Request $request, Customer $customer, AccountsReceivableService $receivables, CustomerCreditService $credit)
     {
+        $navigation = $request->validate([
+            'tab' => ['nullable', 'in:credit,payments'],
+            'credit_page' => ['nullable', 'integer', 'min:1'],
+            'payment_page' => ['nullable', 'integer', 'min:1'],
+        ]);
+        $activeHistoryTab = $navigation['tab']
+            ?? (isset($navigation['payment_page']) ? 'payments' : 'credit');
+
         $creditSummary = $credit->summary($customer);
         $creditTransactions = $receivables->receivablesQuery()
             ->where('transactions.customer_id', $customer->id)
             ->orderByDesc('transactions.date')->orderByDesc('transactions.id')
-            ->paginate(8, ['*'], 'credit_page')->withQueryString();
+            ->paginate(8, ['*'], 'credit_page')
+            ->appends(['tab' => 'credit']);
         $payments = TransactionPayment::query()
             ->whereHas('transaction', fn ($query) => $query->where('customer_id', $customer->id)->whereHas('creditSale'))
             ->with(['transaction:id,receipt_no,customer_id', 'paymentMethod:id,code,name', 'receivedBy:id,name'])
-            ->latest('paid_at')->paginate(10, ['*'], 'payment_page')->withQueryString();
+            ->latest('paid_at')->paginate(10, ['*'], 'payment_page')
+            ->appends(['tab' => 'payments']);
 
-        return view('customers.show', compact('customer', 'creditSummary', 'creditTransactions', 'payments', 'receivables'));
+        return view('customers.show', compact('customer', 'creditSummary', 'creditTransactions', 'payments', 'receivables', 'activeHistoryTab'));
     }
 
     public function edit(Customer $customer)

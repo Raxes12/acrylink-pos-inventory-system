@@ -175,7 +175,7 @@
 <div id="toastStack" class="toast-stack" aria-live="polite" aria-relevant="additions"></div>
 
 <div id="confirmActionModal" class="modal-backdrop confirm-backdrop" hidden>
-    <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="confirmActionTitle" aria-describedby="confirmActionMessage">
+    <div class="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmActionTitle" aria-describedby="confirmActionMessage">
         <div class="confirm-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>
         </div>
@@ -184,8 +184,8 @@
             <p id="confirmActionMessage">Are you sure you want to continue?</p>
         </div>
         <div class="confirm-actions">
-            <button type="button" class="btn btn-danger" id="confirmActionSubmit">Continue</button>
             <button type="button" class="btn btn-secondary" id="confirmActionCancel">Cancel</button>
+            <button type="button" class="btn btn-danger" id="confirmActionSubmit">Continue</button>
         </div>
     </div>
 </div>

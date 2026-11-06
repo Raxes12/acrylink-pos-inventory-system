@@ -19,8 +19,25 @@
         Back to Customers
     </a>
     <div class="customer-profile-hero">
-        <div class="customer-profile-identity"><span class="customer-profile-avatar" aria-hidden="true">{{ $initials ?: '?' }}</span><div><div class="customer-profile-eyebrow">{{ $customer->customer_code }}</div><h1>{{ $customer->customer_name }}</h1><div class="customer-profile-badges"><span class="tag {{ $customer->status === 'active' ? 'tag--success' : 'tag--muted' }}">{{ ucfirst($customer->status) }}</span><span class="tag {{ $customer->credit_enabled ? 'tag--accent' : 'tag--muted' }}">Credit {{ $customer->credit_enabled ? 'enabled' : 'disabled' }}</span></div></div></div>
-        <div class="page-actions"><a class="btn btn-secondary" href="{{ route('accounts-receivable.customers.show', $customer) }}">Receivable Account</a><a class="btn btn-primary" href="{{ route('customers.edit', $customer) }}">Edit Customer</a></div>
+        <div class="customer-profile-identity">
+            <span class="customer-profile-avatar" aria-hidden="true">{{ $initials ?: '?' }}</span>
+            <div class="customer-profile-copy">
+                <div class="customer-profile-eyebrow">{{ $customer->customer_code }}</div>
+                <h1>{{ $customer->customer_name }}</h1>
+                <div class="customer-profile-badges">
+                    <span class="tag {{ $customer->status === 'active' ? 'tag--success' : 'tag--muted' }}">{{ ucfirst($customer->status) }}</span>
+                    <span class="tag {{ $customer->credit_enabled ? 'tag--accent' : 'tag--muted' }}">Credit {{ $customer->credit_enabled ? 'enabled' : 'disabled' }}</span>
+                </div>
+                <div class="customer-profile-meta" aria-label="Customer contact summary">
+                    @if($customer->phone)<span><i class="bi bi-telephone" aria-hidden="true"></i>{{ $customer->phone }}</span>@endif
+                    @if($customer->email)<span><i class="bi bi-envelope" aria-hidden="true"></i>{{ $customer->email }}</span>@endif
+                </div>
+            </div>
+        </div>
+        <div class="page-actions">
+            <a class="btn btn-secondary" href="{{ route('accounts-receivable.customers.show', $customer) }}"><i class="bi bi-journal-text" aria-hidden="true"></i>Receivable account</a>
+            <a class="btn btn-primary" href="{{ route('customers.edit', $customer) }}"><i class="bi bi-pencil" aria-hidden="true"></i>Edit customer</a>
+        </div>
     </div>
 
     <section class="customer-credit-overview section-spaced" aria-labelledby="customerCreditOverviewTitle">
@@ -93,36 +110,173 @@
         </section>
     </div>
 
-    <section class="card customer-history-card section-spaced">
+    <section class="customer-activity section-spaced" data-customer-history aria-labelledby="customerActivityTitle">
+        <header class="customer-activity-heading">
+            <div>
+                <span class="customer-activity-kicker">Account activity</span>
+                <h2 id="customerActivityTitle">Credit and payment history</h2>
+                <p>Switch between credit sales and collections without scrolling through both lists.</p>
+            </div>
+            <span class="customer-activity-total">{{ number_format($creditTransactions->total() + $payments->total()) }} total records</span>
+        </header>
+
+        <nav class="customer-history-tabs" role="tablist" aria-label="Customer account history">
+            <a
+                href="{{ route('customers.show', ['customer' => $customer, 'tab' => 'credit']) }}"
+                id="customerCreditTab"
+                class="customer-history-tab {{ $activeHistoryTab === 'credit' ? 'is-active' : '' }}"
+                role="tab"
+                aria-selected="{{ $activeHistoryTab === 'credit' ? 'true' : 'false' }}"
+                aria-controls="customerCreditPanel"
+                tabindex="{{ $activeHistoryTab === 'credit' ? '0' : '-1' }}"
+                data-customer-history-tab="credit"
+            >
+                <span class="customer-tab-icon"><i class="bi bi-receipt" aria-hidden="true"></i></span>
+                <span class="customer-tab-copy"><strong>Credit Transactions</strong><small>Sales, balances, and due dates</small></span>
+                <span class="customer-tab-count">{{ number_format($creditTransactions->total()) }}</span>
+            </a>
+            <a
+                href="{{ route('customers.show', ['customer' => $customer, 'tab' => 'payments']) }}"
+                id="customerPaymentsTab"
+                class="customer-history-tab {{ $activeHistoryTab === 'payments' ? 'is-active' : '' }}"
+                role="tab"
+                aria-selected="{{ $activeHistoryTab === 'payments' ? 'true' : 'false' }}"
+                aria-controls="customerPaymentsPanel"
+                tabindex="{{ $activeHistoryTab === 'payments' ? '0' : '-1' }}"
+                data-customer-history-tab="payments"
+            >
+                <span class="customer-tab-icon"><i class="bi bi-wallet2" aria-hidden="true"></i></span>
+                <span class="customer-tab-copy"><strong>Payment History</strong><small>Collections and payment details</small></span>
+                <span class="customer-tab-count customer-tab-count--success">{{ number_format($payments->total()) }}</span>
+            </a>
+        </nav>
+
+        <div
+            id="customerCreditPanel"
+            class="customer-history-panel"
+            role="tabpanel"
+            aria-labelledby="customerCreditTab"
+            data-customer-history-panel="credit"
+            @if($activeHistoryTab !== 'credit') hidden @endif
+        >
+    <section class="card customer-history-card">
         <div class="card-header"><div><span class="card-title">Credit Transactions</span><span class="customer-card-caption">Open and settled credit sales for this customer.</span></div><span class="tag tag--accent">{{ $creditTransactions->total() }} transactions</span></div>
         <div class="table-wrap" tabindex="0" role="region" aria-label="Customer credit transactions"><table><thead><tr><th>Receipt</th><th>Sale Date</th><th>Due Date</th><th>Status</th><th class="text-right">Net</th><th class="text-right">Paid</th><th class="text-right">Balance</th><th>Actions</th></tr></thead><tbody>
         @forelse($creditTransactions as $transaction)
-            @php($displayStatus = $receivables->statusForRow($transaction))
-            <tr><td><a class="receipt-code" href="{{ route('pos.receipt', $transaction) }}">{{ $transaction->receipt_no }}</a></td><td>{{ $transaction->date->format('M d, Y') }}</td><td>{{ $transaction->creditSale->due_date->format('M d, Y') }}</td><td><span class="status {{ $displayStatus === 'overdue' ? 'status-danger' : ($displayStatus === 'paid' ? 'status-active' : 'status-low') }}">{{ ucfirst(str_replace('_', ' ', $displayStatus)) }}</span></td><td class="text-right">&#8369;{{ number_format((float) $transaction->ar_net_amount, 2) }}</td><td class="text-right">&#8369;{{ number_format((float) $transaction->ar_paid_amount, 2) }}</td><td class="text-right customer-history-balance">&#8369;{{ number_format((float) $transaction->ar_balance_amount, 2) }}</td><td><div class="table-actions">@if((float) $transaction->ar_balance_amount > 0)<a class="btn btn-primary btn-sm" href="{{ route('pos.credit-payments.create', $transaction) }}">Record Payment</a>@endif<a class="btn btn-secondary btn-sm" href="{{ route('pos.receipt', $transaction) }}">Receipt</a></div></td></tr>
+            @php
+                $displayStatus = $receivables->statusForRow($transaction);
+            @endphp
+            <tr>
+                <td data-label="Receipt"><a class="receipt-code" href="{{ route('pos.receipt', $transaction) }}">{{ $transaction->receipt_no }}</a></td>
+                <td data-label="Sale date">{{ $transaction->date->format('M d, Y') }}</td>
+                <td data-label="Due date">{{ $transaction->creditSale->due_date->format('M d, Y') }}</td>
+                <td data-label="Status"><span class="status {{ $displayStatus === 'overdue' ? 'status-danger' : ($displayStatus === 'paid' ? 'status-active' : 'status-low') }}">{{ ucfirst(str_replace('_', ' ', $displayStatus)) }}</span></td>
+                <td data-label="Net" class="text-right">&#8369;{{ number_format((float) $transaction->ar_net_amount, 2) }}</td>
+                <td data-label="Paid" class="text-right">&#8369;{{ number_format((float) $transaction->ar_paid_amount, 2) }}</td>
+                <td data-label="Balance" class="text-right customer-history-balance">&#8369;{{ number_format((float) $transaction->ar_balance_amount, 2) }}</td>
+                <td data-label="Actions"><div class="table-actions">@if((float) $transaction->ar_balance_amount > 0)<a class="btn btn-primary btn-sm" href="{{ route('pos.credit-payments.create', $transaction) }}">Record payment</a>@endif<a class="btn btn-secondary btn-sm" href="{{ route('pos.receipt', $transaction) }}">View receipt</a></div></td>
+            </tr>
         @empty<tr><x-empty-state colspan="8" title="No credit transactions" message="Credit sales for this customer will appear here." /></tr>@endforelse
-        </tbody></table></div><div class="view-blades-footer">{{ $creditTransactions->links() }}</div>
+        </tbody></table></div><div class="view-blades-footer customer-history-footer"><span>Showing {{ $creditTransactions->firstItem() ?? 0 }}–{{ $creditTransactions->lastItem() ?? 0 }} of {{ number_format($creditTransactions->total()) }} transactions</span>{{ $creditTransactions->links() }}</div>
     </section>
+        </div>
 
+        <div
+            id="customerPaymentsPanel"
+            class="customer-history-panel"
+            role="tabpanel"
+            aria-labelledby="customerPaymentsTab"
+            data-customer-history-panel="payments"
+            @if($activeHistoryTab !== 'payments') hidden @endif
+        >
     <section class="card customer-history-card">
-        <div class="card-header"><div><span class="card-title">Payment History</span><span class="customer-card-caption">Collections received for this customer's credit sales.</span></div><span class="tag tag--success">{{ $payments->total() }} payments</span></div>
-        <div class="table-wrap" tabindex="0" role="region" aria-label="Customer payment history"><table><thead><tr><th>Payment Date</th><th>Receipt</th><th>Method</th><th>Reference</th><th>Received By</th><th>Notes</th><th class="text-right">Amount</th><th>Details</th></tr></thead><tbody>
+        <div class="card-header">
+            <div>
+                <span class="card-title">Payment History</span>
+                <span class="customer-card-caption">Collections received for this customer's credit sales.</span>
+            </div>
+            <span class="tag tag--success">{{ $payments->total() }} payments</span>
+        </div>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Customer payment history">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Payment Date</th>
+                        <th>Receipt</th>
+                        <th>Method</th>
+                        <th>Reference</th>
+                        <th>Received By</th>
+                        <th>Notes</th>
+                        <th class="text-right">Amount</th>
+                        <th>Details</th>
+                    </tr>
+                </thead>
+                <tbody>
         @forelse($payments as $payment)
             <tr>
-                <td>{{ $payment->paid_at->format('M d, Y h:i A') }}</td>
-                <td><span class="receipt-code">{{ $payment->transaction?->receipt_no }}</span></td>
-                <td><span class="tag tag--muted">{{ $payment->paymentMethod?->name ?? 'Unknown' }}</span></td>
-                <td>{{ $payment->payment_reference ?: '—' }}</td>
-                <td>{{ $payment->receivedBy?->name ?? 'Unknown' }}</td>
-                <td class="customer-payment-notes">{{ $payment->notes ?: '—' }}</td>
-                <td class="text-right customer-payment-amount">&#8369;{{ number_format((float) $payment->amount, 2) }}</td>
-                <td><a class="btn btn-secondary btn-sm" title="View Receipt Details" href="{{ route('pos.credit-payments.show', $payment) }}"><i class="bi bi-eye" aria-hidden="true"></i></a></td>
+                <td data-label="Payment date"><time datetime="{{ $payment->paid_at->toIso8601String() }}">{{ $payment->paid_at->format('M d, Y') }}<span class="customer-payment-time">{{ $payment->paid_at->format('h:i A') }}</span></time></td>
+                <td data-label="Receipt">@if($payment->transaction)<a class="receipt-code" href="{{ route('pos.receipt', $payment->transaction) }}">{{ $payment->transaction->receipt_no }}</a>@else<span>&mdash;</span>@endif</td>
+                <td data-label="Method"><span class="tag tag--muted">{{ $payment->paymentMethod?->name ?? 'Unknown' }}</span></td>
+                <td data-label="Reference">{{ $payment->payment_reference ?: '—' }}</td>
+                <td data-label="Received by">{{ $payment->receivedBy?->name ?? 'Unknown' }}</td>
+                <td data-label="Notes" class="customer-payment-notes">{{ $payment->notes ?: '—' }}</td>
+                <td data-label="Amount" class="text-right customer-payment-amount">&#8369;{{ number_format((float) $payment->amount, 2) }}</td>
+                <td data-label="Details"><a class="btn btn-secondary btn-sm customer-payment-view" aria-label="View payment details for {{ $payment->transaction?->receipt_no ?? 'payment' }}" title="View payment details" href="{{ route('pos.credit-payments.show', $payment) }}"><i class="bi bi-eye" aria-hidden="true"></i><span>View details</span></a></td>
             </tr>
         @empty<tr><x-empty-state colspan="8" title="No payment history" message="Recorded credit payments will appear here." /></tr>@endforelse
-        </tbody></table></div><div class="view-blades-footer">{{ $payments->links() }}</div>
+        </tbody></table></div>
+        <div class="view-blades-footer customer-history-footer customer-payment-pagination">
+            <span>Showing {{ $payments->firstItem() ?? 0 }}&ndash;{{ $payments->lastItem() ?? 0 }} of {{ number_format($payments->total()) }} payments</span>
+            @if($payments->hasPages())
+                @php
+                    $currentPaymentPage = $payments->currentPage();
+                    $lastPaymentPage = $payments->lastPage();
+                    $paymentPages = collect([1, $currentPaymentPage - 1, $currentPaymentPage, $currentPaymentPage + 1, $lastPaymentPage])
+                        ->filter(fn ($page) => $page >= 1 && $page <= $lastPaymentPage)
+                        ->unique()
+                        ->sort()
+                        ->values();
+                    $previousPaymentPage = null;
+                @endphp
+                <nav class="pagination" aria-label="Payment history pagination">
+                    @if($payments->onFirstPage())
+                        <span class="disabled" aria-disabled="true">Previous</span>
+                    @else
+                        <a href="{{ $payments->previousPageUrl() }}" rel="prev">Previous</a>
+                    @endif
+
+                    @foreach($paymentPages as $page)
+                        @if($previousPaymentPage && $page > $previousPaymentPage + 1)
+                            <span class="disabled customer-pagination-gap" aria-hidden="true">&hellip;</span>
+                        @endif
+                        @if($page === $currentPaymentPage)
+                            <span class="active" aria-current="page">{{ $page }}</span>
+                        @else
+                            <a href="{{ $payments->url($page) }}" aria-label="Go to payment history page {{ $page }}">{{ $page }}</a>
+                        @endif
+                        @php
+                            $previousPaymentPage = $page;
+                        @endphp
+                    @endforeach
+
+                    @if($payments->hasMorePages())
+                        <a href="{{ $payments->nextPageUrl() }}" rel="next">Next</a>
+                    @else
+                        <span class="disabled" aria-disabled="true">Next</span>
+                    @endif
+                </nav>
+            @endif
+        </div>
+    </section>
+        </div>
     </section>
 </div>
 @endsection
 
 @push('styles')
 @vite('resources/css/views/customers-1.css')
+@endpush
+
+@push('scripts')
+@vite('resources/js/views/customers-show-1.js')
 @endpush

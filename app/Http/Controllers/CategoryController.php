@@ -29,26 +29,29 @@ class CategoryController extends Controller
                 $category->unsetRelation('products');
             });
 
-        $products = Product::with(
-            'productCategory',
-            'variants.inventoryStock',
-            'variants.brand',
-            'variants.unit',
-            'variants.supplier'
-        )
-            ->when($selectedCategory, fn ($query) => $query->where('category_id', $selectedCategory->id))
-            ->when($search, fn ($query) => $query->where(function ($inner) use ($search) {
-                CaseInsensitiveSearch::where($inner, 'name', $search);
-                $inner->orWhereHas('variants', function ($variantQuery) use ($search) {
-                    CaseInsensitiveSearch::where($variantQuery, 'variant_code', $search);
-                    CaseInsensitiveSearch::orWhere($variantQuery, 'barcode', $search);
-                    $variantQuery->orWhereHas('brand', fn ($brandQuery) => CaseInsensitiveSearch::where($brandQuery, 'name', $search));
-                });
-            }))
-            ->orderBy('name')
-            ->paginate(15)
-            ->withQueryString();
-        $products->getCollection()->each(fn (Product $product) => $this->appendVariantSummary($product));
+        $products = null;
+        if ($selectedCategory) {
+            $products = Product::with(
+                'productCategory',
+                'variants.inventoryStock',
+                'variants.brand',
+                'variants.unit',
+                'variants.supplier'
+            )
+                ->where('category_id', $selectedCategory->id)
+                ->when($search, fn ($query) => $query->where(function ($inner) use ($search) {
+                    CaseInsensitiveSearch::where($inner, 'name', $search);
+                    $inner->orWhereHas('variants', function ($variantQuery) use ($search) {
+                        CaseInsensitiveSearch::where($variantQuery, 'variant_code', $search);
+                        CaseInsensitiveSearch::orWhere($variantQuery, 'barcode', $search);
+                        $variantQuery->orWhereHas('brand', fn ($brandQuery) => CaseInsensitiveSearch::where($brandQuery, 'name', $search));
+                    });
+                }))
+                ->orderBy('name')
+                ->paginate(15)
+                ->withQueryString();
+            $products->getCollection()->each(fn (Product $product) => $this->appendVariantSummary($product));
+        }
 
         return view('categories.index', compact('categories', 'products', 'selectedCategory', 'search'));
     }

@@ -253,12 +253,19 @@ class CrudUpdateTest extends TestCase
         $this->get(route('inventory.show', $variant))->assertOk()->assertSee($variant->variant_code);
         $this->get(route('stock-receipts.index'))->assertOk()->assertSee('Stock Receipts');
         $this->get(route('stock-receipts.create'))->assertOk()->assertSee('Receive Stock');
-        $this->get(route('categories.index'))->assertOk()->assertSee('variants tracked');
-        $this->get(route('categories.index', ['category' => $category->id]))->assertOk()->assertSee('Product / Variants');
+        $this->get(route('categories.index'))->assertOk()
+            ->assertSee('variants tracked')
+            ->assertSee('Category Directory')
+            ->assertSee('data-category-search', false)
+            ->assertSee('data-category-card', false);
+        $this->get(route('categories.index', ['category' => $category->id]))->assertOk()
+            ->assertSee('Product / Variants')
+            ->assertSee('data-live-filter', false)
+            ->assertSee('category-products-table', false);
         $this->get(route('suppliers.create'))->assertOk();
         $this->get(route('suppliers.edit', $supplier))->assertOk();
-        $this->get(route('categories.create'))->assertOk();
-        $this->get(route('categories.edit', $category))->assertOk();
+        $this->get(route('categories.create'))->assertOk()->assertSee('data-category-name-input', false);
+        $this->get(route('categories.edit', $category))->assertOk()->assertSee('data-category-name-preview', false);
         $this->get(route('users.create'))->assertOk();
         $this->get(route('users.edit', $user))->assertOk();
     }

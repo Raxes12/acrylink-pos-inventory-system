@@ -72,7 +72,7 @@
                     @foreach($units as $unit)
                     <div class="settings-unit-row">
                         <form method="POST" action="{{ route('settings.units.update', $unit) }}">@csrf @method('PUT')<input name="code" maxlength="20" required value="{{ $unit->code }}" aria-label="Unit code"><input name="name" maxlength="50" required value="{{ $unit->name }}" aria-label="Unit name"><button class="btn btn-secondary btn-sm" type="submit">Save</button></form>
-                        <form method="POST" action="{{ route('settings.units.destroy', $unit) }}" data-confirm data-confirm-title="Delete unit?" data-confirm-message="Delete {{ $unit->code }} if it is not used by any product?">@csrf @method('DELETE')<button class="btn btn-danger btn-sm" type="submit">Delete</button></form>
+                        <form method="POST" action="{{ route('settings.units.destroy', $unit) }}" data-confirm data-confirm-title="Delete {{ $unit->code }}?" data-confirm-message="This unit of measurement will be permanently deleted if it is not assigned to a product. This action cannot be undone." data-confirm-button="Delete unit">@csrf @method('DELETE')<button class="btn btn-danger btn-sm" type="submit">Delete</button></form>
                     </div>
                     @endforeach
                 </div>

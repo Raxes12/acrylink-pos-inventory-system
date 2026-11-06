@@ -108,9 +108,9 @@
                         </a>
                         <form method="POST" action="{{ route('security.devices.destroy', $device) }}" class="device-action-form"
                             data-confirm
-                            data-confirm-title="Are you sure?"
-                            data-confirm-message="Delete this device {{ $device->device_name }}? This cannot be undone."
-                            data-confirm-button="Confirm">
+                            data-confirm-title="Delete {{ $device->device_name }}?"
+                            data-confirm-message="This authorized-device record will be permanently deleted. The device may need to be authorized again before it can access the system."
+                            data-confirm-button="Delete device">
                             @csrf @method('DELETE')
                             <button type="button" class="btn btn-danger btn-sm device-action-btn" title="Delete Device" aria-label="Delete {{ $device->device_name }}" data-confirm-trigger><i class="bi bi-trash3"></i></button>
                         </form>

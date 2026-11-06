@@ -36,6 +36,7 @@ export default defineConfig(({ mode }) => {
                 'resources/css/views/accounts-receivable-1.css',
                 'resources/css/views/customers-1.css',
                 'resources/js/views/customers-index-1.js',
+                'resources/js/views/customers-show-1.js',
                 'resources/js/views/credit-payments-1.js',
 
                 // ── Inventory ─────────────────────────────────────────────
@@ -47,6 +48,7 @@ export default defineConfig(({ mode }) => {
 
                 // ── Categories ────────────────────────────────────────────
                 'resources/css/views/categories-index-1.css',
+                'resources/js/views/categories-index-1.js',
 
                 // ── Suppliers ─────────────────────────────────────────────
                 'resources/css/views/suppliers-index-1.css',

@@ -12,6 +12,7 @@ use App\Http\Middleware\ValidateAuthorizedDevice;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -20,8 +21,20 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
-    ->withMiddleware(function (Middleware $middleware): void {
-    $middleware->trustProxies(at: '*');
+    ->withMiddleware(function (Middleware $middleware) {
+        $middleware->redirectUsersTo(
+            fn (Request $request) => $request->user()?->defaultLandingRoute() ?? route('login')
+        );
+
+        // Trust only explicitly configured reverse proxies. Trusting every
+        // sender lets clients spoof X-Forwarded-For and bypass IP controls.
+        $trustedProxies = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('TRUSTED_PROXIES', ''))
+        )));
+        if ($trustedProxies !== []) {
+            $middleware->trustProxies(at: $trustedProxies);
+        }
 
         // Append custom middleware to the web group
         $middleware->web(append: [

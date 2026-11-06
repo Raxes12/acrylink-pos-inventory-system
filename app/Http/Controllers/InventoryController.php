@@ -86,7 +86,41 @@ class InventoryController extends Controller
 
     public function movements(Request $request)
     {
-        $query = InventoryMovement::with(
+        $movementTypes = [
+            '' => 'All movements',
+            'stock_in' => 'Stock In',
+            'stock_out' => 'Stock Out',
+            'sale' => 'Sale',
+            'adjustment' => 'Adjustment',
+            'sale_return' => 'Return In',
+        ];
+
+        $filters = $request->validate([
+            'type' => ['nullable', 'string', 'in:stock_in,stock_out,sale,adjustment,sale_return'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+
+        $filteredQuery = InventoryMovement::query();
+
+        if (! empty($filters['type'])) {
+            $filteredQuery->where('movement_type', $filters['type']);
+        }
+        if (! empty($filters['date_from'])) {
+            $filteredQuery->whereDate('created_at', '>=', $filters['date_from']);
+        }
+        if (! empty($filters['date_to'])) {
+            $filteredQuery->whereDate('created_at', '<=', $filters['date_to']);
+        }
+
+        $movementSummary = [
+            'movements' => (clone $filteredQuery)->count(),
+            'units_added' => (int) (clone $filteredQuery)->where('quantity_change', '>', 0)->sum('quantity_change'),
+            'units_removed' => abs((int) (clone $filteredQuery)->where('quantity_change', '<', 0)->sum('quantity_change')),
+            'adjustments' => (clone $filteredQuery)->where('reference_type', 'manual_adjustment')->count(),
+        ];
+
+        $query = (clone $filteredQuery)->with(
             'variant.product.productCategory',
             'variant.brand',
             'variant.unit',
@@ -94,19 +128,9 @@ class InventoryController extends Controller
             'user'
         )->latest('created_at')->latest('id');
 
-        if ($request->filled('type')) {
-            $query->where('movement_type', $request->type);
-        }
-        if ($request->filled('date_from')) {
-            $query->whereDate('created_at', '>=', $request->date_from);
-        }
-        if ($request->filled('date_to')) {
-            $query->whereDate('created_at', '<=', $request->date_to);
-        }
-
         $movements = $query->paginate(10)->withQueryString();
 
-        return view('inventory.movements', compact('movements'));
+        return view('inventory.movements', compact('movements', 'movementSummary', 'movementTypes', 'filters'));
     }
 
     public function create()

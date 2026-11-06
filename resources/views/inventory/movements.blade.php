@@ -3,113 +3,205 @@
 @section('page-label', 'Inventory Management')
 
 @php
-    $types = [
-        '' => 'All Types',
-        'stock_in' => 'Stock In',
-        'stock_out' => 'Stock Out',
-        'sale' => 'Sale',
-        'adjustment' => 'Adjustment',
-        'sale_return' => 'Return In',
-    ];
+    $selectedType = $filters['type'] ?? '';
+    $dateFrom = $filters['date_from'] ?? '';
+    $dateTo = $filters['date_to'] ?? '';
+    $hasFilters = filled($selectedType) || filled($dateFrom) || filled($dateTo);
+
+    if ($dateFrom && $dateTo) {
+        $periodLabel = $dateFrom === $dateTo
+            ? \Carbon\Carbon::parse($dateFrom)->format('M j, Y')
+            : \Carbon\Carbon::parse($dateFrom)->format('M j').' – '.\Carbon\Carbon::parse($dateTo)->format('M j, Y');
+    } elseif ($dateFrom) {
+        $periodLabel = 'From '.\Carbon\Carbon::parse($dateFrom)->format('M j, Y');
+    } elseif ($dateTo) {
+        $periodLabel = 'Through '.\Carbon\Carbon::parse($dateTo)->format('M j, Y');
+    } else {
+        $periodLabel = 'All recorded dates';
+    }
 @endphp
 
 @section('content')
-<x-inventory-nav />
-<div class="page-toolbar stock-toolbar">
-    <div>
-        <h1 class="page-heading">Stock Movements</h1>
-        <p class="page-sub">Complete history of all inventory changes.</p>
-    </div>
-    <a href="{{ route('inventory.stock-overview') }}" class="btn btn-secondary">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
-        Overview
-    </a>
-</div>
+<div class="movements-page">
+    <x-inventory-nav />
 
-<form method="GET" action="{{ route('inventory.movements') }}" class="filter-bar stock-filter movement-filter" data-live-filter>
-    <label>
-        <span>Movement type</span>
-        <select name="type">
-            @foreach($types as $value => $label)
-            <option value="{{ $value }}" {{ request('type')===$value ? 'selected' : '' }}>{{ $label }}</option>
-            @endforeach
-        </select>
-    </label>
-    <label>
-        <span>From date</span>
-        <input type="date" name="date_from" value="{{ request('date_from') }}">
-    </label>
-    <label>
-        <span>To date</span>
-        <input type="date" name="date_to" value="{{ request('date_to') }}">
-    </label>
-    <button type="submit" class="btn btn-primary">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
-        Filter
-    </button>
-    @if(request()->filled('type') || request()->filled('date_from') || request()->filled('date_to'))
-    <a href="{{ route('inventory.movements') }}" class="btn btn-secondary">Clear</a>
-    @endif
-</form>
+    <x-page-header title="Stock Movements" subtitle="Review every stock increase, sale, return, and adjustment in one audit-friendly history." class="movement-page-header">
+        <x-slot:actions>
+            <a href="{{ route('inventory.stock-overview') }}" class="btn btn-secondary">
+                <svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 16 4-4 3 3 5-7"/></svg>
+                Stock overview
+            </a>
+        </x-slot:actions>
+    </x-page-header>
 
-<div class="card stock-card" data-live-results>
-    <div class="table-wrap">
-        <table class="stock-table movement-table">
-            <thead>
-                <tr>
-                    <th>Date</th>
-                    <th>Product / Variant</th>
-                    <th>Movement Type</th>
-                    <th>Qty Change</th>
-                    <th>Before</th>
-                    <th>After</th>
-                    <th>User</th>
-                    <th>Adjustment Reason</th>
-                    <th>Remarks</th>
-                </tr>
-            </thead>
-            <tbody>
-            @forelse($movements as $movement)
-            @php
-                $typeLabel = $movement->reference_type === 'manual_adjustment'
-                    ? \App\Support\StockAdjustmentOptions::typeLabel($movement->movement_type)
-                    : ($types[$movement->movement_type] ?? str($movement->movement_type)->replace('_', ' ')->title());
-                $reasonLabel = \App\Support\StockAdjustmentOptions::reasonLabel($movement->movement_type, $movement->adjustment_reason);
-                $qtyClass = $movement->quantity_change < 0 ? 'movement-negative' : 'movement-positive';
-                $variant = $movement->variant;
-                $product = $variant?->product;
-                $variantDetails = collect([
-                    $variant?->part_number,
-                    $variant?->brand?->name,
-                    $variant?->size,
-                    $variant?->color,
-                ])->filter()->join(' / ');
-            @endphp
-            <tr>
-                <td data-label="Date" class="stock-muted">{{ $movement->created_at?->format('M j, Y h:i A') }}</td>
-                <td data-label="Product / Variant">
-                    @if($variant)
-                    <a class="stock-product-name stock-product-link" href="{{ route('inventory.show', $variant) }}">{{ $product?->name ?? 'Deleted product' }}</a>
-                    @else
-                    <div class="stock-product-name">Deleted product</div>
-                    @endif
-                    <div class="stock-product-sub">{{ $variant?->variant_code ?? '-' }}{{ $variantDetails ? ' - '.$variantDetails : '' }}</div>
-                </td>
-                <td data-label="Movement type"><span class="movement-type">{{ $typeLabel }}</span></td>
-                <td data-label="Quantity change" class="{{ $qtyClass }}">{{ $movement->quantity_change > 0 ? '+' : '' }}{{ $movement->quantity_change }}</td>
-                <td data-label="Before" class="stock-muted">{{ $movement->quantity_before }}</td>
-                <td data-label="After" class="stock-onhand">{{ $movement->quantity_after }}</td>
-                <td data-label="User">{{ $movement->user?->name ?? 'System Administrator' }}</td>
-                <td data-label="Adjustment reason">@if($reasonLabel)<span class="movement-reason">{{ $reasonLabel }}</span>@else<span class="stock-muted">&mdash;</span>@endif</td>
-                <td data-label="Remarks" class="stock-muted movement-remarks">{{ $movement->remarks ?: '-' }}</td>
-            </tr>
-            @empty
-            <x-empty-state colspan="9" title="No stock movements found" message="Try clearing the date or movement filters." icon="transactions" />
-            @endforelse
-            </tbody>
-        </table>
-    </div>
-    <div class="view-blades-footer">
+    <section class="movement-filter-panel" aria-labelledby="movement-filter-title">
+        <div class="movement-filter-heading">
+            <div>
+                <span class="movement-filter-kicker">History filters</span>
+                <h2 id="movement-filter-title">Find a stock activity</h2>
+                <p>Results refresh automatically when a filter changes.</p>
+            </div>
+            <div class="movement-filter-context">
+                <span>{{ $movementTypes[$selectedType] ?? 'All movements' }}</span>
+                <strong>{{ $periodLabel }}</strong>
+            </div>
+        </div>
+
+        <form method="GET" action="{{ route('inventory.movements') }}" class="movement-filter" data-live-filter>
+            <label class="movement-filter-field movement-filter-field--type">
+                <span>Movement type</span>
+                <div class="movement-control">
+                    <svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 7h11l-3-3"/><path d="m19 7-3 3"/><path d="M16 17H5l3 3"/><path d="m5 17 3-3"/></svg>
+                    <select name="type" aria-label="Filter by movement type">
+                        @foreach($movementTypes as $value => $label)
+                            <option value="{{ $value }}" @selected($selectedType === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </label>
+            <label class="movement-filter-field">
+                <span>From date</span>
+                <div class="movement-control">
+                    <svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+                    <input type="date" name="date_from" value="{{ $dateFrom }}" aria-label="Show movements from date">
+                </div>
+            </label>
+            <label class="movement-filter-field">
+                <span>To date</span>
+                <div class="movement-control">
+                    <svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/></svg>
+                    <input type="date" name="date_to" value="{{ $dateTo }}" min="{{ $dateFrom }}" aria-label="Show movements through date">
+                </div>
+            </label>
+            @if($hasFilters)
+                <a href="{{ route('inventory.movements') }}" class="movement-reset" data-live-filter-clear>
+                    <svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                    Reset filters
+                </a>
+            @endif
+            <span class="movement-filter-status" data-live-filter-status role="status" aria-live="polite"></span>
+            <noscript><button type="submit" class="btn btn-primary">Apply filters</button></noscript>
+        </form>
+        @error('date_to')<p class="movement-filter-error" role="alert">The end date must be the same as or later than the start date.</p>@enderror
+    </section>
+
+    <div data-live-results class="movement-live-results">
+        <section class="movement-summary-grid" aria-label="Filtered movement summary">
+            <article class="movement-summary-card movement-summary-card--total">
+                <span class="movement-summary-icon" aria-hidden="true"><svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 16h2v2H7zM11 11h2v7h-2zM15 6h2v12h-2z"/></svg></span>
+                <div><span>Total activities</span><strong>{{ number_format($movementSummary['movements']) }}</strong><small>in this view</small></div>
+            </article>
+            <article class="movement-summary-card movement-summary-card--added">
+                <span class="movement-summary-icon" aria-hidden="true"><svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg></span>
+                <div><span>Units added</span><strong>+{{ number_format($movementSummary['units_added']) }}</strong><small>received or returned</small></div>
+            </article>
+            <article class="movement-summary-card movement-summary-card--removed">
+                <span class="movement-summary-icon" aria-hidden="true"><svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg></span>
+                <div><span>Units removed</span><strong>−{{ number_format($movementSummary['units_removed']) }}</strong><small>sold or deducted</small></div>
+            </article>
+            <article class="movement-summary-card movement-summary-card--adjusted">
+                <span class="movement-summary-icon" aria-hidden="true"><svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span>
+                <div><span>Manual adjustments</span><strong>{{ number_format($movementSummary['adjustments']) }}</strong><small>staff-entered changes</small></div>
+            </article>
+        </section>
+
+        <section class="card movement-results-card" aria-labelledby="movement-history-title">
+            <header class="movement-results-header">
+                <div>
+                    <span class="movement-results-kicker">Activity log</span>
+                    <h2 id="movement-history-title">Movement history</h2>
+                    <p>{{ $periodLabel }} · {{ $movementTypes[$selectedType] ?? 'All movements' }}</p>
+                </div>
+                <span class="movement-result-count">{{ number_format($movements->total()) }} {{ \Illuminate\Support\Str::plural('record', $movements->total()) }}</span>
+            </header>
+            <div class="table-wrap movement-table-wrap" tabindex="0" aria-label="Stock movement history table">
+                <table class="stock-table movement-table">
+                    <thead>
+                        <tr>
+                            <th>Date &amp; time</th>
+                            <th>Product / variant</th>
+                            <th>Movement</th>
+                            <th>Change</th>
+                            <th>Stock level</th>
+                            <th>Recorded by</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @forelse($movements as $movement)
+                        @php
+                            $typeLabel = $movement->reference_type === 'manual_adjustment'
+                                ? \App\Support\StockAdjustmentOptions::typeLabel($movement->movement_type)
+                                : ($movementTypes[$movement->movement_type] ?? str($movement->movement_type)->replace('_', ' ')->title());
+                            $reasonLabel = \App\Support\StockAdjustmentOptions::reasonLabel($movement->movement_type, $movement->adjustment_reason);
+                            $variant = $movement->variant;
+                            $product = $variant?->product;
+                            $unitCode = $variant?->unit?->code;
+                            $variantDetails = collect([$variant?->part_number, $variant?->brand?->name, $variant?->size, $variant?->color])->filter()->join(' / ');
+                            $typeClass = in_array($movement->movement_type, ['stock_in', 'sale_return'], true)
+                                ? 'is-increase'
+                                : (in_array($movement->movement_type, ['stock_out', 'sale'], true) ? 'is-decrease' : 'is-adjustment');
+                            $referenceLabel = $movement->reference_type && $movement->reference_type !== 'manual_adjustment'
+                                ? str($movement->reference_type)->replace('_', ' ')->title()
+                                : null;
+                        @endphp
+                        <tr class="movement-row {{ $typeClass }}">
+                            <td data-label="Date & time">
+                                <time class="movement-date" datetime="{{ $movement->created_at?->toIso8601String() }}">
+                                    <strong>{{ $movement->created_at?->format('M j, Y') ?? 'Date unavailable' }}</strong>
+                                    <span>{{ $movement->created_at?->format('h:i A') }}</span>
+                                </time>
+                            </td>
+                            <td data-label="Product / variant">
+                                <div class="movement-product">
+                                    @if($variant)
+                                        <a class="stock-product-name stock-product-link" href="{{ route('inventory.show', $variant) }}">{{ $product?->name ?? 'Deleted product' }}</a>
+                                    @else
+                                        <strong class="stock-product-name">Deleted product</strong>
+                                    @endif
+                                    <div class="movement-variant-line">
+                                        <span class="movement-code">{{ $variant?->variant_code ?? 'Unavailable' }}</span>
+                                        @if($variantDetails)<span>{{ $variantDetails }}</span>@endif
+                                    </div>
+                                </div>
+                            </td>
+                            <td data-label="Movement">
+                                <span class="movement-type movement-type--{{ $typeClass }}"><span aria-hidden="true"></span>{{ $typeLabel }}</span>
+                            </td>
+                            <td data-label="Change">
+                                <span class="movement-change {{ $movement->quantity_change < 0 ? 'movement-negative' : 'movement-positive' }}">
+                                    {{ $movement->quantity_change > 0 ? '+' : '' }}{{ number_format($movement->quantity_change) }}
+                                    @if($unitCode)<small>{{ $unitCode }}</small>@endif
+                                </span>
+                            </td>
+                            <td data-label="Stock level">
+                                <div class="movement-stock-flow" aria-label="Stock changed from {{ $movement->quantity_before }} to {{ $movement->quantity_after }}">
+                                    <span>{{ number_format($movement->quantity_before) }}</span>
+                                    <svg class="app-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                                    <strong>{{ number_format($movement->quantity_after) }}</strong>
+                                </div>
+                            </td>
+                            <td data-label="Recorded by">
+                                <div class="movement-user">
+                                    <span aria-hidden="true">{{ str($movement->user?->name ?? 'System')->substr(0, 1)->upper() }}</span>
+                                    <strong>{{ $movement->user?->name ?? 'System' }}</strong>
+                                </div>
+                            </td>
+                            <td data-label="Details">
+                                <div class="movement-context">
+                                    @if($reasonLabel)<span class="movement-reason">{{ $reasonLabel }}</span>@endif
+                                    @if($referenceLabel)<span class="movement-reference">{{ $referenceLabel }}</span>@endif
+                                    <p class="movement-remarks">{{ $movement->remarks ?: 'No additional notes' }}</p>
+                                </div>
+                            </td>
+                        </tr>
+                    @empty
+                        <x-empty-state colspan="7" title="No stock movements match these filters" message="Try another movement type or widen the selected date range." icon="transactions" />
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <footer class="view-blades-footer movement-results-footer">
         <div class="pagination-summary">
             Showing {{ $movements->firstItem() ?? 0 }}-{{ $movements->lastItem() ?? 0 }} of {{ $movements->total() }} movements
         </div>
@@ -124,7 +216,7 @@
                 ->values();
             $previousPage = null;
         @endphp
-        <nav class="rules-pagination" aria-label="Stock variant pagination">
+        <nav class="rules-pagination" aria-label="Stock movement pagination">
             @if($movements->onFirstPage())
                 <span class="rules-page is-disabled" aria-disabled="true">Previous</span>
             @else
@@ -133,7 +225,7 @@
 
             @foreach($pages as $page)
                 @if($previousPage && $page > $previousPage + 1)
-                    <span class="rules-page rules-page--gap" aria-hidden="true">...</span>
+                    <span class="rules-page rules-page--gap" aria-hidden="true">&hellip;</span>
                 @endif
 
                 @if($page === $currentPage)
@@ -152,6 +244,8 @@
             @endif
         </nav>
         @endif
+            </footer>
+        </section>
     </div>
 </div>
 @endsection
