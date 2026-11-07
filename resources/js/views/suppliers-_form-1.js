@@ -13,7 +13,7 @@ scope.expose({ toggleSupplierCheckFields });
 // Initialize the conditional note on create and edit pages.
 document.querySelectorAll('.supplier-payment-method').forEach(sel => {
     toggleSupplierCheckFields();
-    sel.addEventListener('change', toggleSupplierCheckFields);
+    scope.listen(sel, 'change', toggleSupplierCheckFields);
 });
 
 });

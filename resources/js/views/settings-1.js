@@ -1,3 +1,6 @@
+import { registerPage } from '../page-lifecycle.js';
+
+registerPage(import.meta.url, scope => {
 const input = document.querySelector('[data-logo-input]');
 const preview = document.getElementById('businessLogoPreview');
 const fileLabel = document.querySelector('[data-logo-file]');
@@ -38,30 +41,30 @@ const showFile = (file) => {
     if (reset) reset.checked = false;
 };
 
-input?.addEventListener('change', () => {
+scope.listen(input, 'change', () => {
     const file = input.files?.[0];
     if (file) showFile(file);
 });
 
-dropzone?.addEventListener('click', () => input?.click());
-dropzone?.addEventListener('keydown', (event) => {
+scope.listen(dropzone, 'click', () => input?.click());
+scope.listen(dropzone, 'keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
         input?.click();
     }
 });
 
-['dragenter', 'dragover'].forEach((eventName) => dropzone?.addEventListener(eventName, (event) => {
+['dragenter', 'dragover'].forEach((eventName) => scope.listen(dropzone, eventName, (event) => {
     event.preventDefault();
     dropzone.classList.add('is-dragging');
 }));
 
-['dragleave', 'drop'].forEach((eventName) => dropzone?.addEventListener(eventName, (event) => {
+['dragleave', 'drop'].forEach((eventName) => scope.listen(dropzone, eventName, (event) => {
     event.preventDefault();
     dropzone.classList.remove('is-dragging');
 }));
 
-dropzone?.addEventListener('drop', (event) => {
+scope.listen(dropzone, 'drop', (event) => {
     const file = event.dataTransfer?.files?.[0];
     if (!file || !input) return;
 
@@ -71,7 +74,7 @@ dropzone?.addEventListener('drop', (event) => {
     showFile(file);
 });
 
-reset?.addEventListener('change', () => {
+scope.listen(reset, 'change', () => {
     if (reset.checked) {
         input.value = '';
         setPreview(reset.dataset.defaultLogo);
@@ -85,6 +88,7 @@ reset?.addEventListener('change', () => {
     fileLabel?.classList.remove('is-selected', 'is-error');
 });
 
-window.addEventListener('pagehide', () => {
+scope.dispose(() => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
+});
 });

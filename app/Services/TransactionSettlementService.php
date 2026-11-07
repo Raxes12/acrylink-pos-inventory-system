@@ -101,6 +101,29 @@ class TransactionSettlementService
         }, 3);
     }
 
+    /**
+     * Record the first payment for a transaction created by the current
+     * checkout database transaction. The caller has already validated the
+     * amount and assigned the final payment status, so running the model's
+     * aggregate status synchronizer here would only repeat several queries.
+     */
+    public function recordCheckoutPayment(Transaction $transaction, array $attributes): TransactionPayment
+    {
+        $amount = $this->fromCents($this->toCents($attributes['amount'] ?? 0));
+
+        if ($amount <= 0) {
+            throw ValidationException::withMessages([
+                'payment' => 'The checkout payment amount must be greater than zero.',
+            ]);
+        }
+
+        $payment = new TransactionPayment(array_merge($attributes, ['amount' => $amount]));
+        $payment->transaction()->associate($transaction);
+        $payment->saveQuietly();
+
+        return $payment;
+    }
+
     public function synchronizePaymentStatus(Transaction $transaction): void
     {
         $transaction->unsetRelation('payments');

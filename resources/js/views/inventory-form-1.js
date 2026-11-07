@@ -10,6 +10,73 @@ registerPage(import.meta.url, scope => {
     const productNameInput = document.querySelector('input[name="name"]');
     const categorySelect = document.querySelector('select[name="category"]');
     const productMode = document.querySelector('[data-product-mode]');
+    const wizardForm = document.querySelector('[data-inventory-variant-wizard]');
+    let currentWizardStep = Math.min(3, Math.max(1, Number(wizardForm?.dataset.initialStep || 1)));
+    let highestWizardStep = currentWizardStep;
+
+    const syncProductRequirements = () => {
+        if (!wizardForm) return;
+        const hasExistingProduct = Boolean(wizardForm.elements.product_id?.value);
+        if (productNameInput) productNameInput.required = !hasExistingProduct;
+        if (categorySelect) categorySelect.required = !hasExistingProduct;
+    };
+
+    const syncThresholdValidity = () => {
+        if (!wizardForm) return;
+        const reorderInput = wizardForm.elements.min_stock;
+        const criticalInput = wizardForm.elements.critical_stock;
+        if (!criticalInput) return;
+        criticalInput.setCustomValidity('');
+        if (reorderInput?.value !== '' && criticalInput.value !== '' && Number(criticalInput.value) > Number(reorderInput.value)) {
+            criticalInput.setCustomValidity('Critical level must be equal to or lower than the re-order level.');
+        }
+    };
+
+    const panelIsValid = (step, report = false) => {
+        if (!wizardForm) return true;
+        syncProductRequirements();
+        syncThresholdValidity();
+        const panel = wizardForm.querySelector(`[data-inventory-form-panel="${step}"]`);
+        const invalidField = [...(panel?.querySelectorAll('input, select, textarea') || [])]
+            .find(field => !field.disabled && !field.checkValidity());
+        if (invalidField && report) invalidField.reportValidity();
+        return !invalidField;
+    };
+
+    const updateWizardAccess = () => {
+        if (!wizardForm) return;
+        const stepOneValid = panelIsValid(1);
+        const stepTwoValid = panelIsValid(2);
+        const stepTwoButton = wizardForm.querySelector('[data-inventory-go-step="2"]');
+        const stepThreeButton = wizardForm.querySelector('[data-inventory-go-step="3"]');
+        if (stepTwoButton) stepTwoButton.disabled = !stepOneValid;
+        if (stepThreeButton) stepThreeButton.disabled = highestWizardStep < 3 || !stepOneValid || !stepTwoValid;
+    };
+
+    const goToWizardStep = (requestedStep, focusPanel = true) => {
+        if (!wizardForm) return;
+        currentWizardStep = Math.min(3, Math.max(1, Number(requestedStep) || 1));
+        highestWizardStep = Math.max(highestWizardStep, currentWizardStep);
+        wizardForm.dataset.currentStep = String(currentWizardStep);
+
+        wizardForm.querySelectorAll('[data-inventory-form-panel]').forEach(panel => {
+            panel.hidden = Number(panel.dataset.inventoryFormPanel) !== currentWizardStep;
+        });
+        wizardForm.querySelectorAll('[data-inventory-step-indicator]').forEach(indicator => {
+            const step = Number(indicator.dataset.inventoryStepIndicator);
+            indicator.classList.toggle('is-active', step === currentWizardStep);
+            indicator.classList.toggle('is-complete', step < currentWizardStep);
+            indicator.querySelector('button')?.setAttribute('aria-current', step === currentWizardStep ? 'step' : 'false');
+        });
+
+        updateWizardAccess();
+        if (focusPanel) {
+            const panel = wizardForm.querySelector(`[data-inventory-form-panel="${currentWizardStep}"]`);
+            panel?.setAttribute('tabindex', '-1');
+            panel?.focus({ preventScroll: true });
+            wizardForm.querySelector('[data-inventory-wizard-steps]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
 
     const updateProductMode = (productName = '') => {
         if (!productMode) return;
@@ -91,6 +158,8 @@ registerPage(import.meta.url, scope => {
                     categorySelect.value = option.dataset.category;
                 }
                 updateProductMode(option.dataset.label || '');
+                syncProductRequirements();
+                updateWizardAccess();
             }
 
             lookup.classList.toggle('has-selection', value.value !== '');
@@ -134,6 +203,8 @@ registerPage(import.meta.url, scope => {
                     categorySelect.value = '';
                 }
                 updateProductMode();
+                syncProductRequirements();
+                updateWizardAccess();
             }
 
             input.focus();
@@ -161,6 +232,48 @@ registerPage(import.meta.url, scope => {
     costInput?.addEventListener('input', updatePricingPreview);
     priceInput?.addEventListener('input', updatePricingPreview);
     updatePricingPreview();
+
+    if (wizardForm) {
+        scope.listen(wizardForm, 'click', event => {
+            const nextButton = event.target.closest('[data-inventory-next-step]');
+            if (nextButton) {
+                if (panelIsValid(currentWizardStep, true)) goToWizardStep(nextButton.dataset.inventoryNextStep);
+                return;
+            }
+
+            const backButton = event.target.closest('[data-inventory-back-step]');
+            if (backButton) {
+                goToWizardStep(backButton.dataset.inventoryBackStep);
+                return;
+            }
+
+            const navigationButton = event.target.closest('[data-inventory-go-step]');
+            if (navigationButton && !navigationButton.disabled) goToWizardStep(navigationButton.dataset.inventoryGoStep);
+        });
+
+        scope.listen(wizardForm, 'input', updateWizardAccess);
+        scope.listen(wizardForm, 'change', updateWizardAccess);
+        scope.listen(wizardForm, 'submit', event => {
+            for (let step = 1; step <= 3; step++) {
+                if (!panelIsValid(step)) {
+                    event.preventDefault();
+                    goToWizardStep(step);
+                    panelIsValid(step, true);
+                    return;
+                }
+            }
+
+            const submitButton = wizardForm.querySelector('[data-inventory-submit]');
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.setAttribute('aria-busy', 'true');
+                submitButton.innerHTML = '<span class="inventory-submit-spinner" aria-hidden="true"></span> Saving Variant...';
+            }
+        });
+
+        syncProductRequirements();
+        goToWizardStep(currentWizardStep, false);
+    }
 
     const imageInput = document.querySelector('[data-image-input]');
     const imageHelp = document.querySelector('[data-image-help]');

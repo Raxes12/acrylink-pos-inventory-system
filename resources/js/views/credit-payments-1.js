@@ -1,3 +1,6 @@
+import { registerPage } from '../page-lifecycle.js';
+
+registerPage(import.meta.url, scope => {
 const method = document.getElementById('payment_method');
 const reference = document.getElementById('payment_reference');
 const referenceLabel = document.getElementById('creditPaymentReferenceLabel');
@@ -27,10 +30,11 @@ function updateReferenceField() {
     methodHelp.textContent = help[method.value] || 'Choose how the payment was received.';
 }
 
-method?.addEventListener('change', updateReferenceField);
-document.getElementById('payFullBalance')?.addEventListener('click', event => {
+scope.listen(method, 'change', updateReferenceField);
+scope.listen(document.getElementById('payFullBalance'), 'click', event => {
     const amount = document.getElementById('amount');
     amount.value = event.currentTarget.dataset.amount || '';
     amount.focus();
 });
 updateReferenceField();
+});

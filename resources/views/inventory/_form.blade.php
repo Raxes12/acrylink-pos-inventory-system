@@ -8,7 +8,7 @@
 @endphp
 
 <div class="editor-body inventory-form-body">
-    <section class="editor-section inventory-form-section">
+    <section class="editor-section inventory-form-section" @if(!$variant) data-inventory-form-panel="1" @if($initialWizardStep !== 1) hidden @endif @endif>
         <div class="editor-section-head inventory-form-section-head">
             <span class="inventory-form-step">1</span>
             <div class="editor-section-title">Product Identity</div>
@@ -53,9 +53,16 @@
                 <textarea name="description" rows="2" placeholder="Optional product notes">{{ old('description', $currentProduct->description ?? '') }}</textarea>
             </div>
         </div>
+        @if(!$variant)
+        <footer class="inventory-wizard-actions inventory-span-full">
+            <a href="{{ route('inventory.index') }}" class="btn btn-secondary">Cancel</a>
+            <span>Choose an existing product or enter a new product name and category.</span>
+            <button type="button" class="btn btn-primary" data-inventory-next-step="2">Continue to variant details <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+        </footer>
+        @endif
     </section>
 
-    <section class="editor-section inventory-form-section">
+    <section class="editor-section inventory-form-section" @if(!$variant) data-inventory-form-panel="2" @if($initialWizardStep !== 2) hidden @endif @endif>
         <div class="editor-section-head inventory-form-section-head">
             <span class="inventory-form-step">2</span>
             <div class="editor-section-title">Variant Details</div>
@@ -67,7 +74,7 @@
                 @if(!$variant)
                     <input type="hidden" name="suggested_code" value="{{ $suggestedVariantCode }}">
                 @endif
-                <input type="text" name="code" value="{{ old('code', $variant->variant_code ?? $suggestedVariantCode ?? '') }}" placeholder="e.g. PRDV-056" autocomplete="off" required autofocus>
+                <input type="text" name="code" value="{{ old('code', $variant->variant_code ?? $suggestedVariantCode ?? '') }}" placeholder="e.g. PRDV-056" autocomplete="off" required @if($variant) autofocus @endif>
                 <div class="form-help">
                     @if($variant)
                         Must be unique across all variants.
@@ -148,9 +155,16 @@
                 </div>
             </div>
         </div>
+        @if(!$variant)
+        <footer class="inventory-wizard-actions inventory-span-full">
+            <button type="button" class="btn btn-secondary" data-inventory-back-step="1"><i class="bi bi-arrow-left" aria-hidden="true"></i>Back</button>
+            <span>Use identifiers that help cashiers find the exact item quickly.</span>
+            <button type="button" class="btn btn-primary" data-inventory-next-step="3">Continue to pricing &amp; stock <i class="bi bi-arrow-right" aria-hidden="true"></i></button>
+        </footer>
+        @endif
     </section>
 
-    <section class="editor-section inventory-form-section">
+    <section class="editor-section inventory-form-section" @if(!$variant) data-inventory-form-panel="3" @if($initialWizardStep !== 3) hidden @endif @endif>
         <div class="editor-section-head inventory-form-section-head">
             <span class="inventory-form-step">3</span>
             <div class="editor-section-title">Pricing &amp; Stock</div>
@@ -183,5 +197,12 @@
                 <p><i class="bi bi-info-circle" aria-hidden="true"></i> Critical level must be equal to or lower than the re-order level.</p>
             </div>
         </div>
+        @if(!$variant)
+        <footer class="inventory-wizard-actions inventory-span-full">
+            <button type="button" class="btn btn-secondary" data-inventory-back-step="2"><i class="bi bi-arrow-left" aria-hidden="true"></i>Back</button>
+            <span><i class="bi bi-shield-check" aria-hidden="true"></i>Review the prices and stock thresholds before saving.</span>
+            <button type="submit" class="btn btn-primary" data-inventory-submit><i class="bi bi-check2" aria-hidden="true"></i>Save Variant</button>
+        </footer>
+        @endif
     </section>
 </div>

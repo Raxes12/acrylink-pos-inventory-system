@@ -2,6 +2,98 @@
         align-items: flex-start;
     }
 
+/* Guided Add Variant wizard */
+.inventory-form-card [data-inventory-form-panel][hidden] { display: none !important; }
+.inventory-wizard-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--soft) 62%, var(--card));
+    list-style: none;
+}
+.inventory-wizard-steps li { min-width: 0; }
+.inventory-wizard-steps button {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 9px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.inventory-wizard-steps button > span {
+    display: grid;
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--card);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 900;
+}
+.inventory-wizard-steps button > div { display: grid; min-width: 0; gap: 2px; }
+.inventory-wizard-steps strong { overflow: hidden; color: var(--text); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-wizard-steps small { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-wizard-steps button:disabled { cursor: not-allowed; opacity: .52; }
+.inventory-wizard-steps button:not(:disabled):hover { background: color-mix(in srgb, var(--ops-accent) 6%, var(--card)); }
+.inventory-wizard-steps button:focus-visible { outline: 3px solid color-mix(in srgb, var(--ops-accent) 20%, transparent); outline-offset: -2px; }
+.inventory-wizard-steps .is-active button { background: var(--card); box-shadow: 0 4px 12px rgba(15, 23, 42, .05); }
+.inventory-wizard-steps .is-active button > span { border-color: var(--ops-accent); background: var(--ops-accent); color: #fff; }
+.inventory-wizard-steps .is-complete button > span { border-color: color-mix(in srgb, var(--success) 42%, var(--border)); background: color-mix(in srgb, var(--success) 10%, var(--card)); color: var(--success); font-size: 0; }
+.inventory-wizard-steps .is-complete button > span::before { content: '\2713'; font-size: 12px; }
+.inventory-wizard-errors { display: flex; align-items: flex-start; gap: 9px; margin: 14px 24px 0; }
+.inventory-wizard-errors > div { display: grid; gap: 2px; }
+.inventory-wizard-errors strong { font-size: 11px; }
+.inventory-wizard-errors span { font-size: 10px; }
+.inventory-form-card [data-inventory-form-panel] { animation: inventory-wizard-enter .2s ease-out; }
+.inventory-form-card [data-inventory-form-panel]:focus { outline: none; }
+.inventory-span-full { grid-column: 1 / -1; }
+.inventory-wizard-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px -24px -22px;
+    padding: 14px 24px;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--soft) 48%, var(--card));
+}
+.inventory-wizard-actions > span { flex: 1; color: var(--muted); font-size: 10px; font-weight: 650; line-height: 1.4; text-align: center; }
+.inventory-wizard-actions > span i { margin-right: 5px; color: var(--ops-accent); }
+.inventory-wizard-actions .btn { display: inline-flex; min-height: 40px; align-items: center; justify-content: center; gap: 6px; }
+.inventory-submit-spinner { width: 14px; height: 14px; border: 2px solid rgba(255, 255, 255, .42); border-top-color: #fff; border-radius: 50%; animation: inventory-submit-spin .7s linear infinite; }
+
+@keyframes inventory-wizard-enter {
+    from { opacity: 0; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+@keyframes inventory-submit-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 720px) {
+    .inventory-wizard-steps { display: flex; overflow-x: auto; scrollbar-width: thin; }
+    .inventory-wizard-steps li { flex: 0 0 190px; }
+    .inventory-wizard-actions { align-items: stretch; flex-direction: column-reverse; margin-inline: -16px; padding-inline: 16px; }
+    .inventory-wizard-actions > span { order: 1; }
+    .inventory-wizard-actions .btn { width: 100%; }
+    .inventory-wizard-errors { margin-inline: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .inventory-form-card [data-inventory-form-panel] { animation: none; }
+    .inventory-submit-spinner { animation-duration: 1.5s; }
+}
+
     .cat-badge {
         background: color-mix(in srgb,var(--accent) 10%,var(--soft));
         color: var(--accent);

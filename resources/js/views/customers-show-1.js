@@ -1,3 +1,6 @@
+import { registerPage } from '../page-lifecycle.js';
+
+registerPage(import.meta.url, scope => {
 function initializeCustomerHistoryTabs(root) {
     const tabs = [...root.querySelectorAll('[role="tab"][data-customer-history-tab]')];
     const panels = [...root.querySelectorAll('[role="tabpanel"][data-customer-history-panel]')];
@@ -27,7 +30,7 @@ function initializeCustomerHistoryTabs(root) {
         }
     };
 
-    root.addEventListener('click', event => {
+    scope.listen(root, 'click', event => {
         const tab = event.target.closest('[data-customer-history-tab]');
         if (tab) {
             event.preventDefault();
@@ -35,7 +38,7 @@ function initializeCustomerHistoryTabs(root) {
         }
     });
 
-    root.addEventListener('keydown', event => {
+    scope.listen(root, 'keydown', event => {
         const current = event.target.closest('[data-customer-history-tab]');
         if (!current || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
         event.preventDefault();
@@ -48,9 +51,10 @@ function initializeCustomerHistoryTabs(root) {
         activate(tabs[targetIndex].dataset.customerHistoryTab, { focus: true });
     });
 
-    window.addEventListener('popstate', () => {
+    scope.listen(window, 'popstate', () => {
         activate(new URL(window.location.href).searchParams.get('tab') || 'credit', { updateUrl: false });
     });
 }
 
 document.querySelectorAll('[data-customer-history]').forEach(initializeCustomerHistoryTabs);
+});

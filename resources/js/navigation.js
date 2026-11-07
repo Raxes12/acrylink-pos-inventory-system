@@ -6,6 +6,7 @@ let pending;
 let committing = false;
 let queuedVisit;
 let skeleton;
+let pendingUrl = null;
 
 function startLoading(request, label) {
     skeleton?.remove();
@@ -87,9 +88,13 @@ async function visit(url, { historyVisit = false, trigger = null } = {}) {
         queuedVisit = { url, historyVisit, trigger };
         return;
     }
+    const requestedUrl = new URL(url, location.href).href;
+    if (pending && pendingUrl === requestedUrl) return;
     pending?.abort();
     const request = new AbortController();
     pending = request;
+    pendingUrl = requestedUrl;
+    let usesFullNavigation = false;
     const label = trigger?.querySelector('.nav-text')?.textContent?.trim()
         || trigger?.textContent?.trim() || 'page';
     if (trigger?.classList.contains('nav-link')) {
@@ -146,11 +151,18 @@ async function visit(url, { historyVisit = false, trigger = null } = {}) {
         if (anchor) anchor.scrollIntoView();
         else window.scrollTo(0, 0);
     } catch (error) {
-        if (error.name !== 'AbortError') location.assign(url);
+        if (error.name !== 'AbortError') {
+            // Keep the loading surface in place while the browser performs the
+            // compatibility fallback. Revealing the old page here produced the
+            // visible "load, go back, load again" flicker.
+            usesFullNavigation = true;
+            location.assign(url);
+        }
     } finally {
         if (pending === request) {
-            stopLoading();
+            if (!usesFullNavigation) stopLoading();
             pending = null;
+            pendingUrl = null;
             committing = false;
             if (queuedVisit) {
                 const next = queuedVisit;
@@ -171,6 +183,10 @@ if (sidebar) {
         if (url.origin !== location.origin || !['http:', 'https:'].includes(url.protocol)) return;
         if (/\/(export|download)(\/|$)|\.(pdf|csv|xlsx?)$/i.test(url.pathname)) return;
         if (url.pathname === location.pathname && url.search === location.search && url.hash) return;
+        if (url.href === location.href) {
+            event.preventDefault();
+            return;
+        }
         event.preventDefault();
         visit(url.href, { trigger: link });
     });

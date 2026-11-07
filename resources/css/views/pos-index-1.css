@@ -140,7 +140,7 @@
     border: 2px solid color-mix(in srgb, var(--ops-accent) 20%, var(--border));
     border-top-color: var(--ops-accent);
     border-radius: 50%;
-    animation: checkoutSpin .75s linear infinite;
+    animation: checkoutSpin .6s linear infinite;
 }
 
 #productGrid {
@@ -470,7 +470,7 @@
     border: 2px solid color-mix(in srgb, var(--ops-accent) 20%, var(--border));
     border-top-color: var(--ops-accent);
     border-radius: 50%;
-    animation: checkoutSpin .75s linear infinite;
+    animation: checkoutSpin .6s linear infinite;
 }
 
 .pos-load-sentinel.is-complete {

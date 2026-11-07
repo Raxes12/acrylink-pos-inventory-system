@@ -1,3 +1,6 @@
+import { registerPage } from '../page-lifecycle.js';
+
+registerPage(import.meta.url, scope => {
 const variantPayload = JSON.parse(document.getElementById('posProducts')?.textContent || '[]');
 const initialBatchPayload = JSON.parse(document.getElementById('posProductBatch')?.textContent || '{}');
 const initialCheckoutState = JSON.parse(document.getElementById('posCheckoutState')?.textContent || '{}');
@@ -425,7 +428,7 @@ function openPaymentModal() {
     modal.classList.add('is-visible');
     document.body.classList.add('pos-modal-open');
     recalculate();
-    window.setTimeout(() => modal.querySelector('.method-btn.active')?.focus(), 0);
+    scope.setTimeout(() => modal.querySelector('.method-btn.active')?.focus(), 0);
 }
 
 function closePaymentModal() {
@@ -1268,7 +1271,7 @@ function observeProductGridEnd() {
     productObserver.observe(posLoadSentinel);
 }
 
-Object.assign(window, {
+scope.expose({
     openVariantInfo,
     hideVariantInfo,
     addToCart,
@@ -1310,7 +1313,7 @@ posLoadRetry?.addEventListener('click', () => {
         focusFirstAction: retryRequest.focusFirstAction,
     });
 });
-document.addEventListener('keydown', event => {
+scope.listen(document, 'keydown', event => {
     const target = event.target;
     const isTyping = target instanceof HTMLInputElement
         || target instanceof HTMLTextAreaElement
@@ -1369,7 +1372,7 @@ productGrid?.addEventListener('load', event => {
 productGrid?.addEventListener('error', event => {
     if (event.target.matches('.product-card-image img')) settleProductImage(event.target, false);
 }, true);
-window.addEventListener('popstate', () => loadProductBatch(1, { mode: 'replace' }));
+scope.listen(window, 'popstate', () => loadProductBatch(1, { mode: 'replace' }));
 document.getElementById('variantInfoModal')?.addEventListener('click', event => {
     if (event.target.id === 'variantInfoModal' || event.target.closest('[data-close-variant-info]')) {
         hideVariantInfo();
@@ -1447,7 +1450,7 @@ document.querySelector('[data-pos-scroll-cart]')?.addEventListener('click', () =
 document.querySelector('[data-pos-scroll-products]')?.addEventListener('click', () => {
     const behavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
     document.getElementById('posFilterForm')?.scrollIntoView({ behavior, block: 'start' });
-    window.setTimeout(() => posSearch?.focus({ preventScroll: true }), 280);
+    scope.setTimeout(() => posSearch?.focus({ preventScroll: true }), 280);
 });
 
 attachLoadSentinel();
@@ -1459,3 +1462,13 @@ restorePendingCheckout();
 if (initialCheckoutState.has_errors && Object.keys(cart).length) openPaymentModal();
 setLoadState(productState.hasMore ? 'idle' : 'complete');
 observeProductGridEnd();
+scope.dispose(() => {
+    window.clearTimeout(customerSearchTimer);
+    window.clearTimeout(productFilterTimer);
+    window.clearTimeout(productFeedbackTimer);
+    window.clearTimeout(productSkeletonTimer);
+    customerSearchRequest?.abort();
+    productFetchController?.abort();
+    productObserver?.disconnect();
+});
+});

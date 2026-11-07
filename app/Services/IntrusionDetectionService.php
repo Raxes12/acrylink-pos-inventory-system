@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendIntrusionAlertEmails;
 use App\Models\AuditLog;
 use App\Models\IntrusionAlert;
 use App\Models\IntrusionEvent;
@@ -476,7 +477,15 @@ class IntrusionDetectionService
             && Schema::hasColumn('intrusion_alerts', 'alert_channel')
             && in_array($alert->alert_channel, ['email', 'both'], true)
         ) {
-            $this->sendAlertEmails($alert);
+            // SMTP latency must never hold up checkout or another user-facing
+            // request. The sync queue runs this during Laravel's termination
+            // phase, after the response has reached the browser; installations
+            // with a queue worker process it asynchronously.
+            if (app()->runningUnitTests()) {
+                $this->sendAlertEmails($alert);
+            } else {
+                SendIntrusionAlertEmails::dispatch($alert->getKey())->afterResponse();
+            }
         }
     }
 

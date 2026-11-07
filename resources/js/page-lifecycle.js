@@ -16,6 +16,11 @@ function start(initialize) {
     const scope = {
         dispose: callback => cleanup.push(callback),
         listen(target, type, callback, options = {}) {
+            // Reusable page modules often contain controls that only exist on
+            // one of their views. Treat a missing optional target as a no-op
+            // instead of failing the entire soft navigation and forcing a
+            // second full-page request.
+            if (!target || typeof target.addEventListener !== 'function') return;
             target.addEventListener(type, callback, {
                 ...(typeof options === 'boolean' ? { capture: options } : options),
                 signal: controller.signal,
@@ -51,11 +56,18 @@ function start(initialize) {
             }));
         },
     };
-    disposers.push(() => {
+    const dispose = () => {
         controller.abort();
         cleanup.reverse().forEach(dispose => dispose());
-    });
-    initialize(scope);
+    };
+    disposers.push(dispose);
+    try {
+        initialize(scope);
+    } catch (error) {
+        disposers = disposers.filter(candidate => candidate !== dispose);
+        dispose();
+        throw error;
+    }
 }
 
 export function unmountPages() {

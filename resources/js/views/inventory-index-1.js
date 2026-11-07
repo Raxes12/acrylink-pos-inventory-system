@@ -285,8 +285,8 @@ scope.listen(confirmButton, 'click', () => {
     adjustForm?.requestSubmit();
 });
 
-document.querySelectorAll('[data-close-adjust]').forEach(el => el.addEventListener('click', closeAdjustModal));
-document.querySelectorAll('[data-close-confirm]').forEach(el => el.addEventListener('click', closeConfirmation));
+document.querySelectorAll('[data-close-adjust]').forEach(el => scope.listen(el, 'click', closeAdjustModal));
+document.querySelectorAll('[data-close-confirm]').forEach(el => scope.listen(el, 'click', closeConfirmation));
 scope.listen(document, 'keydown', event => {
     if (event.key === 'Escape' && confirmModal?.hidden === false) closeConfirmation();
     else if (event.key === 'Escape' && adjustModal?.hidden === false) closeAdjustModal();

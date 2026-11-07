@@ -452,6 +452,10 @@ class POSController extends Controller
                 return back()->withErrors(['security' => $blockedReason])->withInput();
             }
 
+            $paymentStatus = $paymentMethod === 'credit_account'
+                ? ($payment >= $total ? 'paid' : ($payment > 0 ? 'partially_paid' : 'unpaid'))
+                : 'paid';
+
             $txn = Transaction::create([
                 'receipt_no' => Transaction::generateReceiptNo(),
                 'checkout_token' => $checkoutToken,
@@ -474,19 +478,23 @@ class POSController extends Controller
                 'payment' => $payment,
                 'change_due' => $changeDue,
                 'status' => 'completed',
-                'payment_status' => $paymentMethod === 'credit_account' ? 'unpaid' : 'paid',
+                'payment_status' => $paymentStatus,
             ]);
 
             if ($paymentMethod === 'credit_account') {
-                $creditSale = CreditSale::create([
+                // Checkout already calculated the final status from the sale
+                // total and initial payment. Avoid the model's generic status
+                // synchronizer here, which otherwise runs several aggregate
+                // queries before the payment row has even been inserted.
+                $creditSale = CreditSale::withoutEvents(fn () => CreditSale::create([
                     'transaction_id' => $txn->id,
                     'customer_id' => $customer->id,
                     'credit_term_days' => $creditTermDays,
                     'due_date' => $txn->date->copy()->addDays($creditTermDays),
                     'original_credit_amount' => $total,
-                ]);
+                ]));
                 if ($payment > 0) {
-                    app(TransactionSettlementService::class)->recordAppliedPayment($txn, [
+                    app(TransactionSettlementService::class)->recordCheckoutPayment($txn, [
                         'payment_method_id' => PaymentMethod::idForCode($initialPaymentMethod),
                         'amount' => $payment,
                         'payment_reference' => $paymentReference,
@@ -499,7 +507,7 @@ class POSController extends Controller
                     ]);
                 }
             } else {
-                app(TransactionSettlementService::class)->recordAppliedPayment($txn, [
+                app(TransactionSettlementService::class)->recordCheckoutPayment($txn, [
                     'payment_method_id' => $txn->payment_method_id,
                     'amount' => $total,
                     'payment_reference' => $paymentReference,
@@ -511,8 +519,6 @@ class POSController extends Controller
                     'notes' => 'POS checkout payment',
                 ]);
             }
-            app(TransactionSettlementService::class)->synchronizePaymentStatus($txn);
-
             $inventoryMonitoring = app(InventoryMonitoringService::class);
             $transactionItems = [];
 
